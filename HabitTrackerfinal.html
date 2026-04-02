@@ -1098,11 +1098,15 @@ async function init(){
   const existing=await dbAll('habits');
   if(!existing.length){
     const defaults=[
-      {id:'reading',name:'Reading',emoji:'📚',color:'#0a84ff',weekGoal:7,order:0},
-      {id:'gym',name:'Gym / Sport',emoji:'💪',color:'#ff375f',weekGoal:4,order:1},
-      {id:'vitamins',name:'Vitamins',emoji:'🤗',color:'#34c759',weekGoal:7,order:2},
-      {id:'journal',name:'Journal',emoji:'📓',color:'#ffcc00',weekGoal:7,order:3},
-      {id:'meditation',name:'Meditation',emoji:'🧘',color:'#af52de',weekGoal:7,order:4},
+      {id:'reading',   name:'Reading',          emoji:'📚',color:'#0a84ff',weekGoal:7,order:0},
+      {id:'gym',       name:'Gym / Sport',       emoji:'💪',color:'#ff375f',weekGoal:4,order:1},
+      {id:'supps',     name:'Supplements',       emoji:'🍎',color:'#34c759',weekGoal:7,order:2},
+      {id:'journal',   name:'Journal',           emoji:'📓',color:'#ffcc00',weekGoal:7,order:3},
+      {id:'pullups',   name:'Klimmzüge',         emoji:'🏋️',color:'#5ac8fa',weekGoal:5,order:4},
+      {id:'pushups',   name:'Liegestütze',       emoji:'🤸',color:'#5856d6',weekGoal:5,order:5},
+      {id:'teeth',     name:'Zähneputzen',       emoji:'🦷',color:'#64d2ff',weekGoal:7,order:6},
+      {id:'nophone',   name:'Ohne Handy schlafen',emoji:'📵',color:'#af52de',weekGoal:7,order:7},
+      {id:'tidy',      name:'2 min aufräumen',   emoji:'🧹',color:'#30d158',weekGoal:7,order:8},
     ];
     for(const h of defaults)await dbPut('habits',h);
   }
@@ -2498,115 +2502,328 @@ function showBooksTab(tab){
 // ═══════════════════════════════════════════
 // KNOWLEDGE DASHBOARD
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// WISSEN-DASHBOARD — SVG Hilfsfunktionen
+// ═══════════════════════════════════════════
+function svgBar(acc,items){
+  const h=items.length*38+24;
+  const bars=items.map(([ic,lbl,pct],i)=>{
+    const y=12+i*38; const w=Math.max(30,Math.round(pct*2.3));
+    return `<rect x="8" y="${y}" width="${w}" height="26" rx="5" fill="${acc}${['28','22','1a','14','10'][i]||'10'}" stroke="${acc}" stroke-width=".7" stroke-opacity=".5"/>
+<text x="18" y="${y+18}" font-size="12" font-family="DM Sans,sans-serif">${ic}</text>
+<text x="36" y="${y+18}" font-size="9" fill="rgba(208,216,248,.85)" font-family="DM Sans,sans-serif">${lbl}</text>
+<text x="295" y="${y+18}" font-size="9" fill="${acc}" text-anchor="end" font-weight="700" font-family="DM Mono,monospace">${pct}%</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 300 ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${bars}</svg>`;
+}
+
+function svgTimeline(acc,events){
+  const h=events.length*42+16;
+  const dots=events.map(([yr,txt],i)=>{
+    const y=22+i*42;
+    return `<circle cx="22" cy="${y}" r="5" fill="${acc}" opacity=".85"/>
+<line x1="22" y1="${y+5}" x2="22" y2="${y+37}" stroke="${acc}" stroke-width="1" stroke-opacity=".2" ${i===events.length-1?'style="display:none"':''}/>
+<text x="36" y="${y-2}" font-size="9" fill="${acc}" font-weight="700" font-family="DM Mono,monospace">${yr}</text>
+<text x="36" y="${y+13}" font-size="8.5" fill="rgba(208,216,248,.75)" font-family="DM Sans,sans-serif">${txt}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 300 ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<line x1="22" y1="8" x2="22" y2="${h-8}" stroke="${acc}" stroke-width="1.5" stroke-opacity=".35"/>${dots}</svg>`;
+}
+
+function svgDISC(acc){
+  return `<svg viewBox="0 0 290 155" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<line x1="145" y1="4" x2="145" y2="151" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+<line x1="4" y1="78" x2="286" y2="78" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+<rect x="6" y="6" width="132" height="66" rx="8" fill="#ff306014" stroke="#ff3060" stroke-width="1.2" stroke-opacity=".65"/>
+<text x="72" y="34" font-size="11" fill="#ff3060" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">ROT · D</text>
+<text x="72" y="52" font-size="8.5" fill="#ff3060" text-anchor="middle" opacity=".75" font-family="DM Sans,sans-serif">Dominant · Direkt</text>
+<text x="72" y="65" font-size="7.5" fill="#404868" text-anchor="middle" font-family="DM Sans,sans-serif">Ziel: Resultate</text>
+<rect x="152" y="6" width="132" height="66" rx="8" fill="#ffd00014" stroke="#ffd000" stroke-width="1.2" stroke-opacity=".65"/>
+<text x="218" y="34" font-size="11" fill="#ffd000" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">GELB · I</text>
+<text x="218" y="52" font-size="8.5" fill="#ffd000" text-anchor="middle" opacity=".75" font-family="DM Sans,sans-serif">Initiativ · Sozial</text>
+<text x="218" y="65" font-size="7.5" fill="#404868" text-anchor="middle" font-family="DM Sans,sans-serif">Ziel: Anerkennung</text>
+<rect x="6" y="82" width="132" height="66" rx="8" fill="#00e87812" stroke="#00e878" stroke-width="1.2" stroke-opacity=".65"/>
+<text x="72" y="110" font-size="11" fill="#00e878" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">GRÜN · S</text>
+<text x="72" y="128" font-size="8.5" fill="#00e878" text-anchor="middle" opacity=".75" font-family="DM Sans,sans-serif">Stabil · Loyal</text>
+<text x="72" y="141" font-size="7.5" fill="#404868" text-anchor="middle" font-family="DM Sans,sans-serif">Ziel: Harmonie</text>
+<rect x="152" y="82" width="132" height="66" rx="8" fill="#00c8ff12" stroke="#00c8ff" stroke-width="1.2" stroke-opacity=".65"/>
+<text x="218" y="110" font-size="11" fill="#00c8ff" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">BLAU · C</text>
+<text x="218" y="128" font-size="8.5" fill="#00c8ff" text-anchor="middle" opacity=".75" font-family="DM Sans,sans-serif">Gewissenhaft</text>
+<text x="218" y="141" font-size="7.5" fill="#404868" text-anchor="middle" font-family="DM Sans,sans-serif">Ziel: Korrektheit</text>
+</svg>`;
+}
+
+function svgCompound(acc){
+  return `<svg viewBox="0 0 300 160" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<defs><linearGradient id="cg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${acc}" stop-opacity=".5"/><stop offset="100%" stop-color="${acc}" stop-opacity=".05"/></linearGradient></defs>
+<text x="8" y="14" font-size="8" fill="${acc}" opacity=".55" font-family="DM Mono,monospace">1% TÄGLICH = 37× NACH 1 JAHR</text>
+<path d="M20 148 Q60 146 90 140 Q130 130 160 112 Q200 88 240 58 Q265 40 280 26" stroke="${acc}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<path d="M20 148 Q60 146 90 140 Q130 130 160 112 Q200 88 240 58 Q265 40 280 26 L280 148 Z" fill="url(#cg1)"/>
+<path d="M20 148 L280 138" stroke="#ff3060" stroke-width="1.2" stroke-dasharray="5,3" opacity=".55"/>
+<text x="230" y="133" font-size="8" fill="#ff3060" opacity=".75" font-family="DM Sans,sans-serif">-1%/Tag</text>
+<text x="210" y="24" font-size="9" fill="${acc}" font-weight="700" font-family="DM Sans,sans-serif">+37×</text>
+<circle cx="280" cy="26" r="4" fill="${acc}"/>
+<text x="8" y="158" font-size="7.5" fill="#404868" font-family="DM Mono,monospace">(1.01)^365 = 37.78 · (0.99)^365 = 0.03</text>
+</svg>`;
+}
+
+function svgHabitLoop(acc){
+  return `<svg viewBox="0 0 280 145" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<defs><marker id="mkar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${acc}" opacity=".7"/></marker></defs>
+<rect x="32" y="22" width="66" height="30" rx="7" fill="${acc}18" stroke="${acc}" stroke-width="1.1" stroke-opacity=".6"/>
+<text x="65" y="41" font-size="10" fill="${acc}" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">CUE</text>
+<rect x="182" y="22" width="66" height="30" rx="7" fill="${acc}18" stroke="${acc}" stroke-width="1.1" stroke-opacity=".6"/>
+<text x="215" y="41" font-size="10" fill="${acc}" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">CRAVING</text>
+<rect x="182" y="100" width="66" height="30" rx="7" fill="${acc}18" stroke="${acc}" stroke-width="1.1" stroke-opacity=".6"/>
+<text x="215" y="119" font-size="10" fill="${acc}" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">REWARD</text>
+<rect x="32" y="100" width="66" height="30" rx="7" fill="${acc}18" stroke="${acc}" stroke-width="1.1" stroke-opacity=".6"/>
+<text x="65" y="119" font-size="10" fill="${acc}" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">RESPONSE</text>
+<line x1="98" y1="37" x2="182" y2="37" stroke="${acc}" stroke-width="1.3" marker-end="url(#mkar)" stroke-opacity=".65"/>
+<line x1="215" y1="52" x2="215" y2="100" stroke="${acc}" stroke-width="1.3" marker-end="url(#mkar)" stroke-opacity=".65"/>
+<line x1="182" y1="115" x2="98" y2="115" stroke="${acc}" stroke-width="1.3" marker-end="url(#mkar)" stroke-opacity=".65"/>
+<line x1="65" y1="100" x2="65" y2="52" stroke="${acc}" stroke-width="1.3" marker-end="url(#mkar)" stroke-opacity=".65"/>
+<text x="140" y="32" font-size="7.5" fill="${acc}" opacity=".5" text-anchor="middle" font-family="DM Mono,monospace">→ Verlangen</text>
+<text x="140" y="130" font-size="7.5" fill="${acc}" opacity=".5" text-anchor="middle" font-family="DM Mono,monospace">← Belohnung</text>
+</svg>`;
+}
+
+function svgFlowChannel(acc){
+  return `<svg viewBox="0 0 300 165" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<defs><linearGradient id="flg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${acc}" stop-opacity=".7"/><stop offset="100%" stop-color="#c084fc" stop-opacity=".7"/></linearGradient></defs>
+<text x="8" y="12" font-size="8" fill="#404868" font-family="DM Mono,monospace">FÄHIGKEIT →</text>
+<text x="8" y="160" font-size="8" fill="#404868" font-family="DM Mono,monospace" writing-mode="tb" transform="rotate(-90,12,155)">HERAUSFORD. ↑</text>
+<path d="M30 145 Q80 100 130 72 Q180 45 260 20" stroke="#ff3060" stroke-width="1.4" fill="none" stroke-dasharray="5,3" opacity=".5"/>
+<path d="M30 145 Q80 140 140 135 Q200 130 270 120" stroke="#ffd000" stroke-width="1.4" fill="none" stroke-dasharray="5,3" opacity=".5"/>
+<path d="M50 125 Q100 90 150 68 Q200 48 255 30 L255 95 Q200 108 150 120 Q100 132 50 138 Z" fill="url(#flg)" opacity=".18"/>
+<text x="155" y="78" font-size="11" fill="${acc}" font-weight="800" font-family="DM Sans,sans-serif">FLOW</text>
+<text x="200" y="50" font-size="8.5" fill="#ff3060" opacity=".75" font-family="DM Sans,sans-serif">Angst/Überforderung</text>
+<text x="145" y="148" font-size="8.5" fill="#ffd000" opacity=".75" font-family="DM Sans,sans-serif">Langeweile</text>
+</svg>`;
+}
+
+function svgPyramid(acc,levels){
+  const svgH=levels.length*40+20;
+  const rows=levels.map(([lbl,sub],i)=>{
+    const w=50+(levels.length-i)*32; const x=(300-w*2)/2;
+    const y=10+i*40;
+    const op=['40','30','22','18','14'][i]||'12';
+    return `<polygon points="${150-w},${y+34} ${150+w},${y+34} ${150+w*.75},${y+6} ${150-w*.75},${y+6}" fill="${acc}${op}" stroke="${acc}" stroke-width=".9" stroke-opacity=".5"/>
+<text x="150" y="${y+22}" font-size="9" fill="${acc}" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">${lbl}</text>
+<text x="150" y="${y+33}" font-size="7" fill="#404868" text-anchor="middle" font-family="DM Sans,sans-serif">${sub}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 300 ${svgH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${rows}</svg>`;
+}
+
+function svgActiPassiva(acc){
+  return `<svg viewBox="0 0 300 155" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+<rect x="6" y="8" width="134" height="135" rx="8" fill="#00e87810" stroke="#00e878" stroke-width="1.1" stroke-opacity=".7"/>
+<text x="73" y="36" font-size="12" fill="#00e878" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">AKTIVA</text>
+<text x="73" y="58" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Aktien / ETFs</text>
+<text x="73" y="76" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Mietimmobilien</text>
+<text x="73" y="94" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Unternehmen</text>
+<text x="73" y="112" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Intellectual Property</text>
+<text x="73" y="134" font-size="9" fill="#00e878" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">→ Geld IN die Tasche</text>
+<rect x="160" y="8" width="134" height="135" rx="8" fill="#ff306010" stroke="#ff3060" stroke-width="1.1" stroke-opacity=".7"/>
+<text x="227" y="36" font-size="12" fill="#ff3060" text-anchor="middle" font-weight="800" font-family="DM Sans,sans-serif">PASSIVA</text>
+<text x="227" y="58" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Konsumkredite</text>
+<text x="227" y="76" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Neues Auto</text>
+<text x="227" y="94" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Eigenheim-Kosten</text>
+<text x="227" y="112" font-size="8.5" fill="rgba(208,216,248,.8)" text-anchor="middle" font-family="DM Sans,sans-serif">Konsumgüter</text>
+<text x="227" y="134" font-size="9" fill="#ff3060" text-anchor="middle" font-weight="700" font-family="DM Sans,sans-serif">← Geld AUS der Tasche</text>
+</svg>`;
+}
+
+// ═══════════════════════════════════════════
+// ALLE 48 GESETZE DER MACHT
+// ═══════════════════════════════════════════
+const LAWS48=[
+  [1,'Übertriff deinen Meister nie','Zeige deine Talente nicht zu offen vor Übergeordneten — sie fühlen sich bedroht. Nicolas Fouquet veranstaltete für Ludwig XIV. ein so prunkvoll Fest auf Schloss Vaux-le-Vicomte, dass er den König in den Schatten stellte. Ludwig ließ ihn noch am selben Abend verhaften. Fouquet starb im Gefängnis.'],
+  [2,'Vertraue niemandem vollständig — nutze deine Feinde','Freunde werden schnell neidisch; ehemalige Feinde müssen Loyalität beweisen. Bismarck holte politische Gegner als engste Berater — nicht aus Großmut, sondern weil sie mehr zu verlieren hatten, als zu verräten.'],
+  [3,'Verberge deine Absichten','Wer Ziele offenbart, lädt Widerstand ein. Bismarck tarnte seinen Plan zur deutschen Einigung jahrelang als diplomatische Routine — bis er vollendet war und niemand reagieren konnte.'],
+  [4,'Sprich immer weniger als nötig','Ludwig XIV. antwortete Ministern grundsätzlich nur: "Ich werde sehen." Niemand wusste, was er dachte — niemand konnte ihn manipulieren. Mehrdeutigkeit erzeugt Ehrfurcht; Reden gibt Angriffsfläche.'],
+  [5,'Schütze deinen Ruf mit deinem Leben','Reputation ist das Fundament jeder Macht. Ein guter Ruf schüchtert ein, ohne Gewalt zu brauchen. Thomas Cromwell ließ Gerüchte über Feinde durch Dritte streuen — ohne selbst sichtbar zu sein.'],
+  [6,'Falle auf um jeden Preis','Unsichtbarkeit ist Machtlosigkeit. P.T. Barnum verstand: Selbst schlechte Publicity zieht Publikum. Skandal ist besser als Ignoranz. Wer nicht bemerkt wird, existiert nicht.'],
+  [7,'Lass andere die Arbeit machen — kassiere den Ruhm','Nikola Tesla lieferte die Ideen; Edison kassierte die Anerkennung und den Wohlstand. Nutze Wissen und Energie anderer, sorge stets dafür, dass der Ruhm auf dich zurückfällt.'],
+  [8,'Lass andere zu dir kommen','Napoleon wartete, bis Gegner sich überdehnten — und griff im günstigsten Moment an. Wer zum anderen geht, gibt Kontrolle ab. Lass die Welt zu dir kommen: du behältst Ruhe und Initiative.'],
+  [9,'Überzeuge durch Taten, nicht durch Argumente','Worte erzeugen Widerstand. Kissinger stellte die Welt vor vollendete Tatsachen statt lange zu argumentieren. Menschen glauben, was sie sehen — nicht was sie hören.'],
+  [10,'Vermeide Unglückliche und Verlierer','Unglück ist oft ansteckend und chronisch. Mary Queen of Scots wurde durch Komplizenschaft in den Ruin gezogen. Umgib dich mit Menschen, deren Energie und Glück du teilen willst.'],
+  [11,'Mach andere von dir abhängig','Bismarck machte sich für Kaiser Wilhelm I. unentbehrlich. Je mehr andere auf dich angewiesen sind, desto freier bist du. Wer ersetzbar ist, hat keine echte Macht — egal wie talentiert.'],
+  [12,'Nutze selektive Großzügigkeit als Werkzeug','Ein strategisches Geschenk schafft Verpflichtungen. Die Medici-Familie kaufte Loyalität durch gezielte Großzügigkeit — nicht aus Altruismus, sondern als Investment in Einfluss und Loyalität.'],
+  [13,'Appelliere an Eigeninteresse, nicht an Dankbarkeit','Roosevelt gewann den Kongress nicht mit Appellen an Loyalität, sondern mit Versprechen konkreter Vorteile. Menschen handeln nach eigenem Interesse — nenn ihnen, was sie gewinnen.'],
+  [14,'Gib dich als Freund aus — handle als Spion','Richelieu baute ein Netz scheinbarer Freunde, die tatsächlich seine Informanten waren. Information ist Macht. Wer die Schwächen anderer kennt, kann ihr Verhalten vorhersagen.'],
+  [15,'Vernichte deinen Feind vollständig','Hsiang Yu ließ Liu Bang immer wieder entkommen. Liu Bang war gnadenlos — er vernichtete Hsiang Yu und gründete die Han-Dynastie. Eine Glut, die glimmt, wird zum Feuer.'],
+  [16,'Nutze Abwesenheit um Wert zu steigern','Degas verschwand regelmäßig aus der Pariser Kunstszene — und sein Auftauchen wurde als Ereignis gefeiert. Was man immer hat, schätzt man nicht. Knappheit erzeugt Begehren.'],
+  [17,'Kultiviere Unvorhersagbarkeit','Mao Zedong wechselte Direktiven scheinbar willkürlich — Mitarbeiter blieben ständig in Atem und konnten keine Gegenstrategie aufbauen. Wer vorhersagbar ist, ist kontrollierbar.'],
+  [18,'Isoliere dich nicht','Ludwig XIV. verließ Versailles und verlor den Überblick über sein Reich. Rückzug schwächt. Informationen kommen nur durch Kontakt — die Festung in Stein ist eine Falle.'],
+  [19,'Kenne dein Gegenüber — wen du beleidigen darfst','Roosevelt studierte Gesprächspartner gründlich. Zu wissen, wer empfindlich, rachsüchtig oder mächtig ist, entscheidet, ob eine Aussage folgenlos bleibt oder einen lebenslangen Feind erschafft.'],
+  [20,'Binde dich keiner Seite vollständig','Talleyrand überlebte Napoleon, die Restauration und die Julimonarchie, indem er nie vollständig einer Seite gehörte. Vollständige Verpflichtungen schaffen Feinde bei allen anderen.'],
+  [21,'Spiele den Toren um Törichteren zu überlisten','Sun Tzu: "Alle Kriegführung basiert auf Täuschung." Gib vor, das Gegenteil zu wollen. Wer sich schwächer oder dümmer zeigt als er ist, senkt die Wachsamkeit des Gegners gefährlich.'],
+  [22,'Nutze die Strategie des Aufgebens','Fabius Maximus gewann den Krieg gegen Hannibal nicht durch Schlachten, sondern durch bewusstes Ausweichen — bis der Feind erschöpft und abgenutzt war. Manchmal ist Rückzug Stärke.'],
+  [23,'Konzentriere deine Kräfte','Die Rothschilds waren nicht allgegenwärtig — aber in den wichtigsten Finanzzentren unersetzlich. Wer Energie auf einen Punkt bündelt, durchbricht jede Verteidigung. Streuung ist Schwäche.'],
+  [24,'Spiele den perfekten Höfling','Castigliones "Buch vom Hofmann": Zeige niemals Mühe, bleibe stets anmutig und kontrolliert. Höfische Machtmikrokosmen existieren in jedem Unternehmen — wer die Regeln kennt, überlebt.'],
+  [25,'Erschaffe dich neu','Coco Chanel erfand sich dreimal neu. Wer stagniert, wird überholt. Die Kontrolle über das eigene Image ist die mächtigste Form der Selbstbestimmung.'],
+  [26,'Halte deine Hände sauber','Cesare Borgia ließ Ramiro de Lorqua für sich die Drecksarbeit erledigen — und ließ ihn dann öffentlich hinrichten, um selbst als gerechter Herrscher dazustehen. Schuld ist delegierbar.'],
+  [27,'Nutze den Glauben der Menschen an etwas Größeres','Joseph Smith gründete eine Religion und schuf damit Loyalität, die keine Armee erzwingen kann. Mythos und Vision sind wirksamer als Argumente, Regeln oder Gehalt.'],
+  [28,'Handle mit Kühnheit','Pietro Aretino erpresste Päpste und Fürsten durch schamlose Kühnheit — weil Dreistigkeit Respekt erzwingt. Kühne Handlungen gewinnen Bewunderung; zögerliche werden ausgenutzt.'],
+  [29,'Plane bis zum Ende','Robespierre plante nur bis zur Revolution — nicht danach. Wer das Ende nicht plant, wird vom Ende überrascht. Die Kunst des Siegens endet nie mit dem ersten Erfolg.'],
+  [30,'Lass deine Errungenschaften mühelos erscheinen','Michelangelo vernichtete Skizzen, damit nur das Meisterwerk sichtbar blieb. Sichtbare Mühe zerstört den Mythos. Anstrengung soll unsichtbar sein — das Ergebnis soll wie ein Wunder wirken.'],
+  [31,'Kontrolliere die Optionen — lass andere in deinem Garten wählen','Ivan der Schreckliche ließ Bojaren zwischen zwei gleich schlechten Alternativen wählen — und gewann in beiden Fällen. Scheinoptionen geben dem Gegenüber das Gefühl von Kontrolle, ohne echte Wahl.'],
+  [32,'Treffe den Nerv — spiel mit Fantasien der Menschen','Walt Disney verkaufte keine Cartoons — er verkaufte Träume von Kindheit und Unschuld. Wer die Fantasie kontrolliert, kontrolliert Entscheidungen und Loyalität.'],
+  [33,'Entdecke jeden Schwachpunkt','Richelieu nutzte die pathologische Eitelkeit von Maria de Medici, um sie vollständig zu steuern. Jeder hat eine Schwachstelle: Eitelkeit, Gier, Angst, Liebe. Finde sie, um zu führen oder zu schützen.'],
+  [34,'Zeige Königlichkeit in Auftreten und Haltung','Ludwig XIV. entwarf jede Geste als Theater. Wer sich wie ein König verhält, wird wie ein König behandelt. Selbstbewusstsein ist eine selbsterfüllende Prophezeiung.'],
+  [35,'Meistere die Kunst des Timings','Joseph schaffte es vom Sklavendienst zum Premierminister Ägyptens — indem er jahrelang wartete und im richtigen Moment unentbehrlich war. Zu früh handeln verschwendet Kräfte.'],
+  [36,'Verachte was du nicht haben kannst','Wer etwas Unerreichbares laut begehrt, zeigt Schwäche. Wer es verachtet, bewahrt Würde. Gleichgültigkeit ist mächtiger als offensichtliches Begehren.'],
+  [37,'Schaffe spektakuläre Ereignisse','P.T. Barnum verstand: Spektakel schafft Wahrnehmung, die Argumente nie erreichen. Menschen folgen dem Außergewöhnlichen — nicht dem Vernünftigen und Soliden.'],
+  [38,'Denk wie du willst — verhalte dich wie andere','Galileo widerrief öffentlich — und lebte, um weiter zu forschen. Giordano Bruno hielt an seinen Überzeugungen fest und wurde verbrannt. Anpassung sichert Überleben; das Innere bleibt frei.'],
+  [39,'Rühre das Wasser auf — halte andere in Unruhe','Napoleon störte Schlachtpläne durch Unberechenbarkeit. Wer andere in Unruhe versetzt, gewinnt Kontrolle über ihr Denken. Ruhige Gewässer sind berechenbar — und damit angreifbar.'],
+  [40,'Verachte das Kostenlose — zahle stets den Preis','Kostenloses kommt mit versteckten Kosten: Verpflichtungen, Manipulation, Schuldgefühle. Die Medici-Familie zahlte immer — und behielt dadurch vollständige Unabhängigkeit.'],
+  [41,'Vermeide die Fußstapfen großer Vorgänger','Alexander der Große schuf seinen eigenen Stil, statt Philipps Strategie zu kopieren. Wer einen Vorgänger imitiert, bleibt immer zweiter — egal wie gut er die Rolle spielt.'],
+  [42,'Greife den Hirten an — die Schafe zerstreuen sich','Robespierre eliminierte Danton — und der gesamte Girondistenblock zerfiel. Wer den Anführer eliminiert, zerstört den Widerstand. Treffe die Quelle; der Fluss trocknet aus.'],
+  [43,'Arbeite auf Herzen und Köpfe ein','Gonzalo de Córdoba gewann Länder nicht durch Schlachten allein, sondern durch das Gewinnen der Bevölkerung. Zwang erzeugt Revolte — Überzeugung erzeugt dauerhafte Loyalität.'],
+  [44,'Werde kein Spiegel — behalte Initiative','Peter der Große umgab sich bewusst mit Widerspruch, um wirklich zu lernen. Wer immer nachgibt, verliert die Initiative. Führe — folge nicht.'],
+  [45,'Reformiere stets — zeige aber keine Brüche','Elizabeth I. veränderte die englische Kirche radikal — aber stets mit dem Anschein der Kontinuität. Menschen ertragen Wandel, wenn er wie Tradition wirkt.'],
+  [46,'Erscheine nie zu perfekt','Caesar zeigte bewusst gelegentliche Schwächen — um nahbar und menschlich zu wirken. Zu viel Vollkommenheit provoziert Neid und Feindschaft, die im Verborgenen arbeiten.'],
+  [47,'Kenne das Ende deiner Ziele — stoppe zur richtigen Zeit','Tamerlane zog nie rechtzeitig zurück und vergeudete Siege. Wer seinen Triumph überdehnt, dreht den Sieg in eine Niederlage.'],
+  [48,'Sei formlos — sei wie Wasser','Mao Zedongs Guerillataktik besiegte eine weit überlegene Armee durch permanente Anpassungsfähigkeit. Wer eine feste Form hat, ist angreifbar und vorhersehbar. Wasser nimmt jede Form an — und bricht jeden Stein.'],
+];
+
+// ═══════════════════════════════════════════
+// WISSEN-DASHBOARD DATEN
+// ═══════════════════════════════════════════
 const KD_BOOKS=[
-  {id:'kb0',title:'Die 1%-Methode',author:'James Clear',cat:'Produktivität',acc:'#00c8ff',
-   essence:'Kleine, konsistente Verbesserungen von täglich 1% führen durch den Zinseszinseffekt zu enormen langfristigen Ergebnissen. Nicht die Ziele entscheiden — sondern die Systeme und die Identität.',
-   takeaways:[
-    ['1% täglich = 37× besser im Jahr','Der mathematische Zinseszins-Effekt: (1,01)^365 = 37,78. Ein Team, das täglich 1% feilt, übertrifft nach einem Jahr jedes andere.'],
-    ['Systeme schlagen Ziele','Ein Schriftsteller mit dem System „500 Wörter täglich" schreibt den Roman, der mit dem Ziel „Roman schreiben" nie entsteht.'],
-    ['Identitätsbasierte Gewohnheiten','Statt „Ich will aufhören zu rauchen" → „Ich bin kein Raucher." Jede Handlung ist Beweis für das eigene Selbstbild.'],
-    ['Cue → Craving → Response → Reward','Die Habitschleife: Reiz → Verlangen → Handlung → Belohnung. Mindestens ein Glied muss verändert werden.'],
-    ['Umgebungsdesign > Willenskraft','Früchte auf dem Tisch → mehr Obst. Handy im Nebenzimmer → weniger Ablenkung. Die Umgebung bestimmt dein Verhalten stärker als dein Charakter.'],
-   ]},
-  {id:'kb1',title:'Die 48 Gesetze der Macht',author:'Robert Greene',cat:'Strategie',acc:'#c084fc',
-   essence:'3.000 Jahre Machtgeschichte in 48 zeitlosen Gesetzen. Wer die Gesetze nicht kennt, wird trotzdem von ihnen beeinflusst — nur ohne es zu merken.',
-   takeaways:[
-    ['Den Meister nie in den Schatten stellen (G1)','Nicolas Fouquet veranstaltete ein prunkvolles Fest, das Ludwig XIV. überstrahlte — und wurde am nächsten Tag verhaftet.'],
-    ['Immer weniger sagen als nötig (G4)','Ludwig XIV. antwortete Ministern nur mit „Ich werde sehen". Niemand konnte ihn manipulieren.'],
-    ['Abhängigkeit erschaffen (G11)','Bismarck machte sich für den König unentbehrlich. Je mehr andere auf dich angewiesen sind, desto mehr Freiheit hast du.'],
-    ['Feinde vollständig vernichten (G15)','Hsiang Yu ließ Liu Bang entkommen — Liu Bang vernichtete ihn und gründete die Han-Dynastie. Eine Glut wird zum Feuer.'],
-    ['Formlosigkeit anstreben (G48)','Sei anpassungsfähig wie Wasser. Mao Zedongs Guerillataktik besiegte eine weit überlegene Armee durch permanente Ungreifbarkeit.'],
-   ]},
-  {id:'kb2',title:'Alles Idioten!?',author:'Thomas Erikson',cat:'Menschen',acc:'#00e878',
-   essence:'Menschen sind nicht schwierig — sie sind nur anders. Das DISC-Modell erklärt vier Grundtypen und wie man mit jedem effektiv kommuniziert.',
-   takeaways:[
-    ['Rot (D) — Dominant','Direkt, ergebnisorientiert, schnell. Will Kontrolle und Resultate. Beispiel: Wer im Meeting sofort zur Lösung springt.'],
-    ['Gelb (I) — Initiativ','Enthusiastisch, sozial, braucht Anerkennung. Beispiel: Der Kollege, der jede Sitzung mit einer neuen Idee beginnt.'],
-    ['Grün (S) — Stabil','Geduldig, loyal, braucht Sicherheit. Kündigt plötzlich, weil es niemand bemerkte.'],
-    ['Blau (C) — Gewissenhaft','Analytisch, braucht Daten und Zeit. Entscheidet erst nach drei Tabellen.'],
-    ['Passe deinen Stil an','Wir reden mit anderen so, wie wir selbst angesprochen werden wollen — das ist die häufigste Kommunikationsfalle.'],
-   ]},
-  {id:'kb3',title:'Über die Psychologie des Geldes',author:'Morgan Housel',cat:'Finanzen',acc:'#ffd000',
-   essence:'Finanzieller Erfolg hängt weniger von Intelligenz ab als von Verhalten. Gier, Angst und kurzes Denken sabotieren selbst die besten Strategien.',
-   takeaways:[
-    ['Niemand ist verrückt','Jeder handelt nach seiner Finanzerfahrung und Geschichte. Kein Verhalten ist rein rational.'],
-    ['Glück und Risiko spielen eine riesige Rolle','Bill Gates besuchte eine der wenigen High Schools weltweit mit Computer. Demut über Erfolg ist angebracht.'],
-    ['Genug wissen ist die wichtigste Fähigkeit','Rajat Gupta — hundertfacher Millionär — saß im Gefängnis, weil er Milliardär sein wollte.'],
-    ['Zinseszins braucht Zeit','99% von Buffetts Vermögen hat er nach seinem 50. Geburtstag verdient. Geduld ist der Schlüssel.'],
-    ['Vermögen = was du NICHT ausgibst','Wahres Vermögen ist das, was man aufgebaut und nicht ausgegeben hat.'],
-   ]},
-  {id:'kb4',title:'Think and Grow Rich',author:'Napoleon Hill',cat:'Mindset',acc:'#ffd000',
-   essence:'Reichtum beginnt im Kopf. Ein brennender Wunsch, klares Ziel und beharrlicher Plan sind die Grundlage jeden großen Erfolgs.',
-   takeaways:[
-    ['Desire — der brennende Wunsch','Schreibe einen genauen Betrag auf, das Datum, bis wann du ihn willst, und lese die Notiz täglich laut vor.'],
-    ['Faith — der kultivierte Glaube','Glaube kann durch tägliche Affirmationen trainiert werden. Erfolg beginnt im Unterbewusstsein.'],
-    ['Spezialisiertes Wissen schlägt Allgemeinwissen','Henry Ford hatte keinen Schulabschluss, aber die besten Experten um sich.'],
-    ['Das Mastermind-Prinzip','Zwei oder mehr Menschen, die koordiniert auf ein Ziel hinarbeiten, erzeugen eine synergistische Kraft.'],
-    ['Persistence ist alles','Mehr Menschen scheitern kurz vor dem Ziel als in jeder anderen Phase.'],
-   ]},
-  {id:'kb5',title:'Beim nächsten Gespräch läuft alles besser',author:'Jefferson Fisher',cat:'Kommunikation',acc:'#00c8ff',
-   essence:'Die meisten Konflikte entstehen nicht aus Feindseligkeit, sondern aus schlechter Kommunikation. Konkrete sprachliche Verschiebungen verändern jedes Gespräch grundlegend.',
-   takeaways:[
-    ['Langsamer sprechen = mehr Kontrolle','Langsames Sprechen zwingt andere zum Zuhören und signalisiert Selbstsicherheit.'],
-    ['"Ich verstehe" statt "Du hast recht"','"Du hast recht" kapituliert. "Ich verstehe" validiert, ohne zuzustimmen.'],
-    ['Fragen entwaffnen Angreifer','"Was genau meinst du damit?" — eine ruhige Frage leitet aggressive Energie vollständig ab.'],
-    ['Schweigen ist eine Antwort','Der erste, der die Stille füllt, ist in der schwächeren Position.'],
-    ['Reset the frame','„Ich glaube, wir haben beide das gleiche Ziel." Unterbricht Eskalationsspiralen sofort.'],
-   ]},
-  {id:'kb6',title:"Can't Hurt Me",author:'David Goggins',cat:'Mindset',acc:'#ff3060',
-   essence:'Goggins beweist: Die menschliche Kapazität liegt weit über dem, was wir für möglich halten. Die 40%-Regel ist sein zentrales Geschenk an die Welt.',
-   takeaways:[
-    ['Die 40%-Regel','Wenn du glaubst, fertig zu sein — bist du bei 40% deiner Kapazität. Der Körper schützt sich vorzeitig.'],
-    ['Der Accountability Mirror','Post-its am Spiegel mit ehrlichen Selbsteinschätzungen. Keine Selbstlüge, kein Selbstmitleid.'],
-    ['Cookie Jar','Sammle deine härtesten überwundenen Momente als mentale Reserve für Krisensituationen.'],
-    ['Callousing the mind','Regelmäßige Konfrontation mit Unbehagen macht den Geist widerstandsfähig — wie Hände durch Arbeit.'],
-    ['Niemand kommt, um dich zu retten','Selbstverantwortung ist befreiend — weil sie bedeutet, dass du die Kontrolle hast.'],
-   ]},
-  {id:'kb7',title:'Ich zeige dir, wie du reich wirst',author:'Ramit Sethi',cat:'Finanzen',acc:'#ffd000',
-   essence:'Finanzielle Freiheit ist ein System, kein Geheimnis. Automatisiere dein Geld und definiere dein eigenes "Rich Life".',
-   takeaways:[
-    ['Automatisiere alles','Was du nicht siehst, gibst du nicht aus. Willenskraft ist endlich — Automatisierung nicht.'],
-    ['Index-Fonds schlagen aktiv gemanagte Fonds','Über 10+ Jahre schlagen über 90% aller aktiv gemanagten Fonds den Markt nicht.'],
-    ['Verhandle aktiv','Gehalt, Tarife, Versicherungen. Diese Gespräche dauern 10 Minuten und sparen Tausende Euro.'],
-    ['Big Wins statt Mikro-Sparerei','Ein verhandeltes Gehalt spart 10.000+ € — täglicher Latte-Verzicht nur 1.400 €/Jahr.'],
-    ['Definiere dein "Rich Life"','Geld ist kein Ziel — es ist ein Werkzeug. Was würdest du tun, wenn Geld keine Rolle spielte?'],
-   ]},
-  {id:'kb8',title:'The Secret',author:'Rhonda Byrne',cat:'Mindset',acc:'#ff8800',
-   essence:'Das Gesetz der Anziehung: Positive Gedanken und Visualisierung ziehen positive Realitäten an. Am besten als psychologisches Aktivierungswerkzeug verstanden.',
-   takeaways:[
-    ['Ask, Believe, Receive','Formuliere klar, glaube vollständig, öffne dich für das Empfangen. Aktiviert zielgerichtetes Denken.'],
-    ['Gedanken sind Energie','Das Gehirn unterscheidet schlecht zwischen intensiv vorgestellter und erlebter Realität.'],
-    ['Dankbarkeit als stärkste Frequenz','Aktiviert nachweislich den präfrontalen Kortex und reduziert Cortisol (Stresshormon).'],
-    ['Das Retikular-Aktivierungssystem','Wer auf Chancen fokussiert ist, bemerkt sie. Das Gehirn filtert gemäß dem Fokus.'],
-    ['Grenzen des Konzepts','Blinder Glaube ohne Handeln führt nicht zum Erfolg. Kombiniert mit konkretem Handeln kann die Denkweise stark wirken.'],
-   ]},
-  {id:'kb9',title:'Sapiens',author:'Yuval Noah Harari',cat:'Wissen',acc:'#00e878',
-   essence:'Sapiens dominiert die Erde wegen einer einzigartigen Fähigkeit: Millionen können an gemeinsame Fiktionen glauben — Geld, Staaten, Religionen, Unternehmen.',
-   takeaways:[
-    ['Kognitive Revolution','Vor 70.000 Jahren entwickelte Sapiens die Fähigkeit, an nicht-existierende Dinge zu glauben — und massive Kooperation wurde möglich.'],
-    ['Intersubjektive Wirklichkeit','Geld ist Papier. Aber solange alle daran glauben, funktioniert es. Dasselbe gilt für Staaten, Gesetze, Unternehmen.'],
-    ['Die Agrar-Revolution als Falle','Sie machte den einzelnen Menschen schlechter (mehr Arbeit, schlechtere Ernährung), aber Sapiens als Spezies erfolgreich.'],
-    ['Geld als universelle Fiktion','Die einzige Erfindung, die alle Kulturen teilen. Muslime, Christen und Atheisten vertrauen alle dem Dollar.'],
-    ['Glück skaliert nicht mit Fortschritt','Unklar, ob Menschen heute glücklicher sind als Jäger und Sammler. Glück ist biologisch reguliert.'],
-   ]},
-  {id:'kb10',title:'Flow@Work',author:'Friederike Fabritius',cat:'Produktivität',acc:'#00c8ff',
-   essence:'Höchstleistung ist das neurobiologische Ergebnis einer Umgebung, die das individuelle Gehirn ernst nimmt. Fabritius verbindet Hirnforschung mit Business-Expertise.',
-   takeaways:[
-    ['FFF-Modell','Furcht (Adrenalin): Lähmung. Fokus (Noradrenalin): Konzentration. Flow (Dopamin+Serotonin): Optimale Leistung.'],
-    ['Vier Neurosignaturen','Dopamin: Neugier. Serotonin: Stabilität. Testosteron: Wettbewerb. Östrogen: Empathie. Jede braucht andere Führung.'],
-    ['Flow entsteht im Gleichgewicht','Weder zu leicht (Langeweile) noch zu schwer (Furcht). Keine Unterbrechungen.'],
-    ['Neuroinklusive Führung','Unternehmen bevorzugen Dopamin- und Testosteron-Profile und verlieren dadurch Talente.'],
-    ['Erholung ist Leistung','Kreative Durchbrüche entstehen oft in Pausen, nicht in Hochleistungsphasen.'],
-   ]},
-  {id:'kb11',title:'Rich Dad Poor Dad',author:'Robert T. Kiyosaki',cat:'Finanzen',acc:'#ffd000',
-   essence:'Schule lehrt keine Finanzbildung. Wer Vermögen aufbaut, denkt anders über Aktiva und Passiva als wer einen hohen Lohn hat.',
-   takeaways:[
-    ['Aktiva vs. Passiva','Aktiva legen Geld in deine Tasche. Passiva nehmen Geld heraus. Die meisten kaufen Passiva und nennen sie Aktiva.'],
-    ['Den Ratte-Wettrennen-Kreislauf verlassen','Mehr verdienen → mehr ausgeben → mehr brauchen → mehr arbeiten. Ausweg: Aktiva aufbauen.'],
-    ['Finanzielle Bildung ist kein Schulfach','Finanzielle Unwissenheit ist die größte Armutsfalle — unabhängig vom Bildungsabschluss.'],
-    ['Einkommen ≠ Reichtum','Reichtum entsteht durch passives Einkommen, das die Lebenshaltungskosten übersteigt.'],
-    ['Mind your own Business','Dein Job ist nicht dein Business. Nutze das Einkommen, um Aktiva zu kaufen.'],
-   ]},
+{id:'kb0',title:'Die 1%-Methode',author:'James Clear',cat:'Produktivität',acc:'#00c8ff',
+ svg:()=>svgCompound('#00c8ff')+svgHabitLoop('#00c8ff'),
+ essence:'James Clears „Atomic Habits" ist eines der meistverkauften Sachbücher aller Zeiten — und das aus einem guten Grund: Es trifft den Kern, warum Menschen scheitern und warum andere unaufhaltsam vorankommen. Die Kernformel ist mathematisch präzise: (1,01)^365 = 37,78. Wer sich täglich nur um 1% verbessert, ist nach einem Jahr 37-mal besser. Das Gegenbeispiel: (0,99)^365 = 0,03 — wer täglich 1% schlechter wird, landet nahezu bei Null. Clear argumentiert, dass der entscheidende Unterschied zwischen Menschen, die ihre Ziele erreichen, und denen, die scheitern, nicht im Talent oder in der Motivation liegt — sondern im System. Ziele geben Richtung, aber Systeme bringen Ergebnisse. Und noch tiefer: Was wir wiederholt tun, formt unsere Identität. Wer täglich liest, ist ein Leser. Wer täglich trainiert, ist ein Sportler. Jede Gewohnheit ist ein Beweis für das Bild, das wir von uns selbst haben.',
+ takeaways:[
+  ['1% täglich — der Zinseszins-Effekt auf Gewohnheiten','(1,01)^365 = 37,78. Wer sich täglich minimal verbessert, übertrifft nach einem Jahr jeden, der auf große Sprünge wartet. Clear beschreibt das „Plateau of Latent Potential": Verbesserung akkumuliert sich lange unsichtbar unter der Oberfläche, bevor sie explodiert. Ein Profischwimmteam, das täglich 1% an Technik, Schlaf und Ernährung optimiert, gewinnt nach einer Saison gegen jedes Team, das auf Talent allein setzt. Das Gefährliche: Diese Kurve ist am Anfang nicht zu sehen — und genau da geben die meisten Menschen auf.'],
+  ['Systeme schlagen Ziele — ausnahmslos','Zwei Sportler können dasselbe Ziel haben: den Marathon gewinnen. Nur der mit dem besseren System gewinnt. Clear zitiert NFL-Coach Bill Walsh: "The score takes care of itself." Wenn du das richtige System implementierst, entstehen Ergebnisse von selbst. Ein Schriftsteller mit dem System "500 Wörter täglich" schreibt den Roman, den der Autor mit dem Ziel "Roman schreiben" nie fertigstellt. Ziele erzeugen temporäre Motivation; Systeme erzeugen permanente Ergebnisse.'],
+  ['Identitätsbasierte Gewohnheiten — werde, wer du sein willst','Person A: "Ich versuche mit dem Rauchen aufzuhören." Person B: "Ich bin kein Raucher." Bei einem Angebot antwortet A: "Nein, ich versuche aufzuhören." B: "Nein, ich rauche nicht." Die Identität macht die Entscheidung. Jede Handlung ist ein Beweis für das Selbstbild. Hundert Mal die Zigarette ablehnen baut eine neue Identität auf — und die Handlungen folgen der Identität automatisch. Clear: "Every action you take is a vote for the type of person you wish to become."'],
+  ['CUE → CRAVING → RESPONSE → REWARD — die vier Gesetze der Verhaltensänderung','Jede Gewohnheit folgt dieser Schleife. Um gute Gewohnheiten aufzubauen: Mach den Reiz offensichtlich, das Verlangen attraktiv, die Handlung einfach, die Belohnung befriedigend. Um schlechte zu brechen: genau das Gegenteil. Konkrete Taktiken: Implementation Intentions ("Ich werde [Handlung] um [Zeit] an [Ort] ausführen"), Habit Stacking ("Nach [bestehender Gewohnheit] werde ich [neue Gewohnheit] ausführen"), Two-Minute Rule (jede neue Gewohnheit auf 2 Minuten reduzieren), Temptation Bundling (Gewünschtes mit Notwendigem verbinden).'],
+  ['Umgebungsdesign schlägt Willenskraft — immer','Anne Thorndike redesignte die Cafeteria eines Krankenhauses: Wasser statt Cola als Standard, Salat auf Augenhöhe. Wasserverkauf +25%, Cola -11% — ohne ein Wort zu wechseln. Clear: "Motivation is overrated; environment often matters more." Früchte auf dem Tisch → mehr Obst. Handy in ein anderes Zimmer → weniger Scrollen. Laufschuhe neben dem Bett → mehr Sport. Gestalte deine Umgebung so, dass das richtige Verhalten der einfachste Weg ist — nicht der heroische.'],
+ ]
+},
+{id:'kb1',title:'Die 48 Gesetze der Macht',author:'Robert Greene',cat:'Strategie',acc:'#c084fc',
+ svg:()=>svgTimeline('#c084fc',[['322 v.Chr.','Aristoteles — Rhetorik & Überzeugung'],['500 n.Chr.','Sun Tzus Kriegskunst — List schlägt Kraft'],['1513','Machiavellis "Der Fürst" erscheint'],['1532','Castigliones Hofmann-Kodex'],['1998','Greene: Die 48 Gesetze der Macht']]),
+ laws48:true,
+ essence:'Robert Greene hat für dieses Buch über 3.000 Jahre Geschichte durchforstet — von Alexander dem Großen über die Medici bis zu Mao Zedong — und 48 zeitlose Gesetze destilliert. Das Buch ist weder Aufruf zur Skrupellosigkeit noch ein moralisches Lehrstück: Es ist eine schonungslose Analyse, wie Macht in der realen Welt funktioniert. Greenes Kernargument: Macht ist keine Ausnahme — sie ist das konstante Hintergrundgeräusch aller menschlichen Interaktion. Wer die Gesetze nicht kennt, wird trotzdem von ihnen beeinflusst — nur als Objekt statt als Akteur. Das Buch gehört zu den meistgelesenen in Gefängnissen und Konzernvorständen — ein Hinweis auf seine Universalität. Die 48 Gesetze lassen sich in fünf Themenblöcke gliedern: Kontrolle über Information und Wahrnehmung, strategische Beziehungsgestaltung, Selbstinszenierung und Timing, Neutralisierung von Gegnern und Erhalt der eigenen Position.',
+ takeaways:[
+  ['Den Meister nie in den Schatten stellen (G1) — das Fundament aller Macht','Nicolas Fouquet veranstaltete für Ludwig XIV. das prächtigste Fest, das Frankreich je gesehen hatte — auf seinem eigenen Schloss Vaux-le-Vicomte. Er wollte imponieren. Ludwig ließ ihn noch auf dem Fest verhaften. Fouquet verbrachte den Rest seines Lebens im Gefängnis. Lektion: Übergeordnete sind empfindlich gegenüber allem, was ihre Autorität infrage stellt. Zeige deine Qualitäten — aber nie so offen, dass sie zum Spiegel werden, in dem ihr Mangel sichtbar wird. Lass Vorgesetzte immer brillanter erscheinen — sie werden dich dafür fördern.'],
+  ['Immer weniger sagen als nötig (G4) — Schweigen als Machtinstrument','Ludwig XIV. regierte Frankreich Jahrzehnte lang mit minimalster verbaler Kommunikation. Minister verließen Audienzräume verwirrt — und das war Absicht. Wer zu viel redet, offenbart Schwächen, Ängste und Grenzen. Wer wenig sagt, wird als tief, bedeutsam und ungreifbar wahrgenommen. Kissinger, der verhandelnden Parteien nie verriet was er wirklich wollte, nutzte Schweigen als stärkstes Verhandlungsinstrument. In der modernen Business-Welt: Führungskräfte, die nur sprechen wenn nötig — nicht wann immer möglich — werden als stärker empfunden.'],
+  ['Abhängigkeit erschaffen (G11) — Unersetzlichkeit als dauerhafte Macht','Bismarck strukturierte seine Arbeit bewusst so, dass niemand außer ihm den Überblick behalten konnte. Er hielt Informationen zurück, knüpfte Beziehungen exklusiv, positionierte sich als einzigen Vermittler. Das Paradox: Wer alle Probleme transparent löst und sein Wissen vollständig teilt, macht sich überflüssig. Je mehr andere auf dich angewiesen sind, desto freier bist du. Temporäre Macht kommt aus Stärke — dauerhafte Macht kommt aus Unersetzlichkeit.'],
+  ['Feinde vollständig vernichten (G15) — keine Glut schwelen lassen','Hsiang Yu ließ Liu Bang immer wieder entkommen — aus einer Mischung aus Großzügigkeit und Unterschätzung. Liu Bang nutzte jede Gelegenheit, baute seine Kräfte auf und vernichtete Hsiang Yu schließlich vollständig. Er gründete die Han-Dynastie, eine der längsten in der chinesischen Geschichte. Greene lehrt: Eine Glut, die glimmt, wird zum Feuer. Ein halbbesiegter Gegner kehrt stärker zurück. Wer Mitgefühl mit Feinden zeigt, zahlt dafür einen hohen Preis.'],
+  ['Formlosigkeit — das letzte und mächtigste Gesetz (G48)','Das 48. Gesetz krönt alle anderen: Sei formlos wie Wasser. Wasser hat keine feste Form — es nimmt die Form jedes Behälters an, findet jeden Weg, unterspült jeden Stein. Mao Zedongs Guerillataktik: Erscheine wo niemand dich erwartet. Verschwinde, bevor der Feind reagieren kann. Absolute Formlosigkeit ist das Endstadium der Macht: Du bist nicht mehr zu definieren, nicht mehr zu kategorisieren, nicht mehr zu bekämpfen. Wer keine Form hat, bietet keinen Angriffspunkt.'],
+ ]
+},
+{id:'kb2',title:'Alles Idioten!?',author:'Thomas Erikson',cat:'Menschen',acc:'#00e878',
+ svg:()=>svgDISC('#00e878'),
+ essence:'Thomas Eriksons Bestseller hat weltweit über 5 Millionen Leser erreicht, weil er eine schmerzhafte Wahrheit elegant verpackt: Menschen sind nicht absichtlich schwierig — sie funktionieren nach einem anderen Betriebssystem. Erikson adaptiert das DISC-Modell (William Marston, 1920er Jahre) in eine zugängliche, praxisnahe Sprache. Vier Grundmuster menschlichen Verhaltens — Dominanz (Rot), Initiative (Gelb), Stabilität (Grün), Gewissenhaftigkeit (Blau) — erklären, warum Kommunikation so oft scheitert. Die wichtigste Erkenntnis: Die häufigste Kommunikationsfalle ist, dass wir mit anderen so sprechen, wie wir selbst angesprochen werden wollen — anstatt so, wie sie es brauchen. Das ist die goldene Regel. Die platinene Regel lautet: Behandle andere so, wie SIE behandelt werden möchten.',
+ takeaways:[
+  ['Rot (D) — Dominant: Direkt, schnell, ergebnisorientiert','Rote wollen Kontrolle, Resultate und schnelle Entscheidungen. Sie werden ungeduldig bei Prozessen, Regeln und langen Erklärungen. Im Meeting springt der Rote direkt zur Lösung, ohne den Prozess zu würdigen. Erkennungszeichen: unterbricht andere, spricht in Statements, entscheidet sofort. Wie kommunizieren: komm direkt zum Punkt, nenn zuerst die Bottom Line, spare Hintergründe. Was Rote hassen: Schwäche, Ineffizienz, lange Begründungen. Führungsfehler: Rote mit Emotionsappellen überhäufen — sie schalten ab und werden aggressive.'],
+  ['Gelb (I) — Initiativ: Enthusiastisch, sozial, optimistisch','Gelbe lieben neue Ideen, brauchen Anerkennung und Spaß. Sie sind die Energie im Raum, aber auch die Unzuverlässigsten — sie lassen sich ablenken und machen Versprechen, die sie vergessen. Erkennungszeichen: überschwängliche Begrüßungen, springt von Thema zu Thema. Wie kommunizieren: begeistere emotional, gib Anerkennung, lass sie reden. Was Gelbe hassen: Isolation, Routine, emotionale Kälte. Führungsfehler: Gelbe mit Details, Zahlen und langen Fakten konfrontieren — sie brauchen zuerst das emotionale "Warum", nicht das technische "Wie".'],
+  ['Grün (S) — Stabil: Geduldig, loyal, harmonieorientiert','Grüne sind die stillen Träger des Teams — zuverlässig, loyal, immer da. Sie verabscheuen Konflikte und Veränderungen. Das Gefährliche: Grüne kündigen selten laut — sie gehen einfach. Erkennungszeichen: hört mehr als er spricht, vermeidet Konfrontation. Wie kommunizieren: gib Zeit, erkläre Veränderungen rechtzeitig und begründe sie. Was Grüne hassen: Überraschungen, Druck, das Gefühl nicht gehört zu werden. Führungsfehler: Grüne als selbstverständlich betrachten — sie kündigen still und plötzlich, wenn die Grenze überschritten ist, ohne Vorwarnung.'],
+  ['Blau (C) — Gewissenhaft: Analytisch, präzise, qualitätsbewusst','Blaue brauchen Daten, Logik, Zeit und Perfektionismus. Sie werden misstrauisch gegenüber Emotionsargumenten und Bauchentscheidungen. Erkennungszeichen: stellt Detailfragen, wirkt distanziert, braucht Prozesse und Regeln. Wie kommunizieren: bring Fakten, Zahlen, Quellen — ohne Lücken. Was Blaue hassen: Unklarheit, Überemotionalität, Improvisation. Führungsfehler: Blaue mit Begeisterung statt Fakten zu überzeugen — sie werden misstrauischer, nicht enthusiastischer. Merksatz: "Vertrauen ist gut, Kontrolle ist besser."'],
+  ['Die Platinregel — behandle andere so, wie SIE behandelt werden wollen','Die goldene Regel (behandle andere wie dich selbst) ist die häufigste Kommunikationsfalle. Ein roter Chef kommuniziert knapp und fordernd mit einem grünen Mitarbeiter — der Grüne zieht sich zurück. Ein gelber Kollege überhäuft einen blauen Analytiker mit Begeisterung — der Blaue wird misstrauisch. Erkenne die Farbe deines Gegenübers und wechsle bewusst in seinen Kanal. Das ist keine Manipulation — es ist Respekt. Erikson: "Wenn du verstehst, warum andere so denken und handeln wie sie es tun, kannst du aufhören, dich darüber aufzuregen."'],
+ ]
+},
+{id:'kb3',title:'Über die Psychologie des Geldes',author:'Morgan Housel',cat:'Finanzen',acc:'#ffd000',
+ svg:()=>svgBar('#ffd000',[['🧠','Verhalten entscheidet',92],['⏳','Zeit ist der größte Faktor',88],['💸','Genug wissen schützt',78],['😨','Angst kostet mehr als Fehler',72],['🎲','Glück wird unterschätzt',65]]),
+ essence:'Morgan Housels „The Psychology of Money" ist kein klassisches Finanzbuch — es gibt keine Aktientipps und keine konkreten Anlagestrategien. Housel stellt eine fundamentale Frage: Warum treffen intelligente Menschen so systematisch schlechte finanzielle Entscheidungen? Seine Antwort: weil Finanzen wie Mathematik behandelt werden, obwohl sie Psychologie sind. In 19 meisterhaft geschriebenen Kapiteln zeigt er, dass finanzieller Erfolg weniger von IQ, Bildung oder Modellen abhängt als von Geduld, Demut und dem Umgang mit Unsicherheit. Das Buch ist gleichzeitig ein Angriff auf den rationalen Homo Oeconomicus und eine Verteidigung des Konzepts "genug."',
+ takeaways:[
+  ['Niemand ist verrückt — jeder handelt nach seiner Erfahrungsgeschichte','Wer in den 1970ern Hyperinflation erlebt hat, handelt bei Geld fundamental anders als wer in stabilen Zeiten aufwuchs. Beide handeln rational — gemäß ihrer persönlichen Geschichte. Ein Lottospieler in armen Verhältnissen kauft nicht aus Dummheit Lose — er kauft das einzige erschwingliche Ticket in eine andere Realität. Housel lehrt radikale finanzielle Empathie: Bevor du jemandes Finanzentscheidung beurteilst, musst du seine Geschichte kennen.'],
+  ['Glück und Risiko spielen eine riesige, unterschätzte Rolle','Bill Gates besuchte eine der wenigen High Schools weltweit, die Anfang der 1970er einen Computer besaßen. Sein Mitschüler Kent Evans hatte dasselbe Talent — starb aber bei einem Bergunfall. Gates wurde der reichste Mann der Welt; Evans ist unbekannt. Das Unbequeme: Wir können Glück und Talent selten unterscheiden. Housel: "Nothing is as good or as bad as it seems." Sei demütig gegenüber eigenem Erfolg — und empathisch gegenüber fremdem Scheitern. Beides enthält mehr Zufall als wir zugeben.'],
+  ['Genug wissen — die wichtigste und seltenste Fähigkeit','Rajat Gupta war Goldman Sachs-Vorstandsmitglied, verdiente Millionen jährlich, war ein geachteter Philanthrop. Er wollte Milliardär sein. Er handelte auf Basis geheimer Vorstandsinformationen — wurde verurteilt und verlor alles. Housel: "Enough is realizing that the opposite of enough is not plenty — it\'s not knowing when to stop." Das Konzept "genug" ist nicht Resignation — es ist die Fähigkeit, den Punkt zu kennen, an dem Mehrstreben selbstzerstörerisch wird.'],
+  ['Zinseszins braucht Zeit — und Zeit braucht Geduld','Buffett hat heute ein Vermögen von über 100 Milliarden Dollar. 99% davon akkumulierten sich nach seinem 50. Geburtstag. Buffett begann mit 10 Jahren zu investieren. Die Magie entfaltet sich erst nach Jahrzehnten. Housel rechnet vor: Wenn Buffett mit 30 statt 10 zu investieren begonnen hätte, wäre sein Vermögen heute ein Bruchteil. Die meisten Menschen verstehen Zinseszins intellektuell — aber emotional unterschätzen sie ihn systematisch, weil die Kurve am Anfang flach ist.'],
+  ['Wahres Vermögen ist unsichtbar — Reichtum ist, was du NICHT ausgibst','Wenn du ein teures Auto siehst, denkst du: dieser Mensch ist reich. Housel: Du siehst das Auto — nicht das Bankkonto, nicht den Kredit, nicht das leere Depot. Ronald Read, ein Tankstellenwart und Hausmeister in Vermont, hinterließ beim Tod 8 Millionen Dollar — durch jahrzehntelanges geduldiges Investieren, ohne jede Außendarstellung. Wealth is what you don\'t spend. Das Geld, das du nicht ausgibst, ist das einzige, das für dich arbeitet.'],
+ ]
+},
+{id:'kb4',title:'Think and Grow Rich',author:'Napoleon Hill',cat:'Mindset',acc:'#ff8800',
+ svg:()=>svgTimeline('#ff8800',[['1908','Hill trifft Carnegie — erhält 20-Jahres-Auftrag'],['1928','"Law of Success" als Vorläufer erscheint'],['1937','"Think and Grow Rich" erscheint'],['Heute','Über 100 Millionen Exemplare verkauft']]),
+ essence:'Napoleon Hill interviewte zwischen 1908 und 1928 über 500 der erfolgreichsten Amerikaner seiner Zeit — Carnegie, Edison, Ford, Roosevelt, Rockefeller. Sein Auftrag von Carnegie: Destilliere die Prinzipien ihres Erfolgs in eine universelle Formel. Das Ergebnis ist eines der meistverkauften Bücher aller Zeiten mit über 100 Millionen Exemplaren. Der zentrale Satz, den Hill immer wiederholt: "Whatever the mind of man can conceive and believe, it can achieve." Hill beschreibt 13 Prinzipien, die alle auf einer Erkenntnis beruhen: Reichtum beginnt als Gedanke — nicht als Kapital, nicht als Talent, nicht als Bildung.',
+ takeaways:[
+  ['Desire — der brennende, obsessive Wunsch als Startpunkt','Hill unterscheidet scharf: Ein Wunsch ist passiv ("Ich würde gerne reich sein"). Ein brennendes Verlangen ist obsessiv ("Ich WERDE dieses Ziel erreichen"). Seine konkrete Methode: 1. Bestimme die genaue Summe. 2. Entscheide, was du dafür gibst. 3. Setze ein genaues Datum. 4. Erstelle einen Plan und beginne sofort. 5. Schreibe alles auf. 6. Lese es zweimal täglich laut vor. Edwin Barnes wollte so unbedingt mit Edison zusammenarbeiten, dass er sich mit dem letzten Geld ein Zugticket kaufte und einfach erschien. Er wurde Partner.'],
+  ['Faith — der trainierbare Glaube als Kraftmultiplikator','Hill beschreibt Faith nicht religiös, sondern als trainierbaren mentalen Zustand vollständiger Überzeugung. Das Werkzeug heißt Autosuggestion: tägliche Affirmationen, die mit Emotion aufgeladen sind. Das Unterbewusstsein unterscheidet nicht zwischen Wahrheit und intensiv vorgestellter Wahrheit. Hill warnt: Autosuggestion ohne emotionale Ladung ist wertlos. Erst wenn das Unterbewusstsein glaubt, was der bewusste Geist vorgibt, entsteht die Kraft, die Hill "Infinite Intelligence" nennt.'],
+  ['Spezialisiertes Wissen schlägt Allgemeinwissen','Henry Ford hatte keinen Schulabschluss. Als Anwälte ihn als "ignorant" bezeichneten, antwortete er: "Ich brauche dieses Wissen nicht im Kopf — ich habe Knöpfe, mit denen ich jeden Experten erreiche." Carnegie wusste nichts über Stahl — er kannte die besten Stahlexperten der Welt und verstand es, sie zu führen. Spezialisiertes Wissen bedeutet: Tiefe in einer engen, relevanten Nische — kombiniert mit einem Netzwerk, das alle anderen Lücken füllt.'],
+  ['Das Mastermind-Prinzip — synergistische Intelligenz','Zwei oder mehr Menschen, die in vollkommener Harmonie auf ein gemeinsames Ziel hinarbeiten, erzeugen eine kollektive Intelligenz, die über die Summe der Einzelgehirne hinausgeht. Carnegies Mastermind-Team aus 50 Direktoren. Roosevelts "Brain Trust". Hill selbst führte täglich mentale Gespräche mit imaginierten Vorbildern — Lincoln, Edison, Napoleon — um ihre Qualitäten zu internalisieren. Moderne Anwendung: Umgib dich mit Menschen, die besser sind als du in den Bereichen, in denen du besser werden willst.'],
+  ['Persistence — das einzige unüberwindliche Qualitätsmerkmal','Hill analysiert hunderte Misserfolge und kommt zu einem Schluss: Das einzige gemeinsame Merkmal aller Erfolgreichen ist nicht Talent, Bildung oder Kapital — es ist Ausdauer. R.U. Darby gab beim Goldgraben wenige Meter vor einer der größten Goldadern der Region auf und verkaufte seinen Claim. Der Käufer fand die Ader drei Meter entfernt. Darby lernte daraus: Er wurde einer der erfolgreichsten Versicherungsvertreter seiner Zeit — weil er nie wieder aufgab.'],
+ ]
+},
+{id:'kb5',title:'Beim nächsten Gespräch läuft alles besser',author:'Jefferson Fisher',cat:'Kommunikation',acc:'#00c8ff',
+ svg:()=>svgBar('#00c8ff',[['🗣️','Langsamer sprechen',92],['🤫','Schweigen nutzen',86],['❓','Gegenfragen stellen',80],['🎯','Frame neu setzen',75],['✋','Grenzen klar benennen',70]]),
+ essence:'Jefferson Fisher ist Strafverteidiger und wurde durch präzise, alltagstaugliche Kommunikationstipps auf Social Media bekannt — mit über 10 Millionen Followern. Das Buch destilliert jahrzehntelange Erfahrung aus Gerichtssälen in konkrete, sofort anwendbare Sprachmuster. Fishers Kernthese: Die meisten Konflikte entstehen nicht aus echter Feindschaft — sie entstehen aus sprachlicher Unklarheit, Missverständnissen und dem Scheitern an emotionalen Eskalationsmomenten. Minimale sprachliche Verschiebungen — ein anderes Wort hier, eine Pause dort — können Gespräche fundamental verändern.',
+ takeaways:[
+  ['Langsamer sprechen — die unterschätzte Superkraft','Unter Druck sprechen Menschen schneller. Das signalisiert: ich bin gestresst, ich verteidige mich. Langsames Sprechen signalisiert das Gegenteil: ich bin ruhig, ich habe Zeit, ich bin in Kontrolle. Fisher: Nach einem aggressiven Statement von jemandem — mache eine 3-5 Sekunden-Pause. Diese Stille wirkt dreifach: nimmt dem Angreifer den Schwung, zeigt dem Raum dass man nicht erschüttert ist, gibt Zeit für den optimalen nächsten Satz. Führungskräfte, die langsam und bewusst sprechen, werden als kompetenter wahrgenommen — unabhängig vom Inhalt.'],
+  ['"Ich verstehe" statt "Du hast recht" — validieren ohne zu kapitulieren','"Du hast recht" ist eine Kapitulation — es beendet den Gedankengang und gibt die eigene Position auf. "Ich verstehe" ist fundamental anders: es validiert die Perspektive des anderen, ohne der Aussage zuzustimmen. Weitere Varianten: "Das macht Sinn aus deiner Perspektive." "Ich kann sehen, warum du das so siehst." Diese Formulierungen erzeugen das Gefühl, gehört zu werden — was Eskalation sofort reduziert — ohne die eigene Position aufzugeben.'],
+  ['Ruhige Gegenfragen entwaffnen Angreifer','Wenn jemand aggressiv angreift, ist die natürliche Reaktion: Verteidigung oder Gegenangriff. Fisher empfiehlt das Gegenteil: stelle eine ruhige, ernstgemeinte Frage. "Was genau meinst du damit?" "Kannst du mir helfen zu verstehen, wie du zu diesem Schluss kommst?" Drei Gründe warum das funktioniert: Der Angreifer muss innehalten und rationalisieren. Die Emotion im Raum sinkt. Du gewinnst Kontrolle über den Gesprächsrahmen — ohne aggressiv zu sein.'],
+  ['Schweigen strategisch nutzen — wer die Stille füllt, verliert','Fisher: "Winning by not speaking." Nach einem starken Statement oder Angebot — schweige. Wer die Stille zuerst bricht, gibt Information preis, zeigt Unsicherheit und verliert Verhandlungsmacht. Fisher beschreibt Fälle, in denen ein zu früh gebrochenes Schweigen entscheidende Zugeständnisse erzeugte. Praktische Übung: Halte nach Fragen bewusst zwei Sekunden inne, bevor du antwortest. Diese Verzögerung verändert die gesamte Gesprächsdynamik.'],
+  ['Grenzen klar kommunizieren — ohne Entschuldigung','Die meisten Menschen scheitern beim Grenzensetzen weil sie sich entschuldigen: "Tut mir leid, aber…" Die Entschuldigung signalisiert, dass die Grenze verhandelbar ist. Fishers Formel: "Ich werde [X] nicht tun. Das liegt daran, dass [kurzer Grund]." Wenn der andere weiter drängt: "Wie ich gesagt habe, werde ich [X] nicht tun." Dieselben Worte, ruhig wiederholt, signalisieren Standfestigkeit ohne Aggression. Grenzen sind kein Angriff — sie sind Information über das eigene Verhalten.'],
+ ]
+},
+{id:'kb6',title:"Can't Hurt Me",author:'David Goggins',cat:'Mindset',acc:'#ff3060',
+ svg:()=>svgBar('#ff3060',[['💪','Tatsächliche Kapazität',100],['🧠','Normalerweise genutzt (40%)',40],['🔥','Goggins Niveau',95],['🛡️','Mentale Abhärtung',88],['🎯','Cookie Jar Effekt',75]]),
+ essence:'David Goggins wuchs in extremer Armut auf, mit einem gewalttätigen Vater. Mit 24 Jahren war er 130 kg schwer, arbeitete als Kammerjäger und hatte keine Perspektive. Innerhalb von drei Monaten verlor er 45 kg, bestand die härteste Militärselektion der Welt dreimal und wurde einer der leistungsfähigsten Menschen des Planeten. Das Buch ist keine Motivationsrede — es ist eine brutale Autobiographie, die eine einzige These beweist: Die menschliche Kapazität ist nahezu unbegrenzt, sobald man aufhört zu lügen, was man leisten kann.',
+ takeaways:[
+  ['Die 40%-Regel — der Körper lügt dich an, um dich zu schützen','Wenn dein Körper dir sagt, er ist fertig — bist du bei 40% deiner tatsächlichen Kapazität. Der Körper hat ein Schutzsystem: Bevor echter Schaden entsteht, sendet er Erschöpfungssignale. Diese kommen viel früher als die tatsächliche Grenze. Goggins demonstriert das durch den SEAL Hell Week, durch 100-Meilen-Rennen mit gebrochenen Knochen, durch 4.030 Klimmzüge in 17 Stunden. Anwendung: Bei einer schwierigen Präsentation, nach der vierten Ablehnung, im dritten Jahr einer mühsamen Ausbildung — der Impuls aufzuhören kommt bei 40%. Was dahinter liegt, ist die Zone außergewöhnlicher Leistung.'],
+  ['Der Accountability Mirror — radikale Ehrlichkeit als Fundament','Goggins klebte ehrliche Post-its an seinen Badezimmerspiegel: "Du bist 130 Kilo schwer." "Du wirst von Kakerlachen regiert." "Du lügst dir selbst vor." Nicht Affirmationen — ehrliche Einschätzungen. Goggins: Das größte Problem der meisten Menschen ist nicht Talent oder Ressourcen — es ist die Fähigkeit, sich selbst anzulügen. Wir sind Experten im Konstruieren von Narrativen, die unser Versagen entschuldigen. Der Accountability Mirror zerstört diese Narrative systematisch.'],
+  ['Der Cookie Jar — die Vergangenheit als mentale Kraftreserve','In den härtesten Momenten eines Ultrarennens greift Goggins in seine mentale "Cookie Jar" — eine Sammlung seiner härtesten überwundenen Momente. Jedes Mal, wenn Goggins etwas durchgehalten hat, das er für unmöglich hielt, landet es im Jar. In Krisen holt er sich diese Erinnerungen bewusst: "Ich habe Hell Week überlebt. Ich habe 100 Meilen mit Stressfrakturen gefinisht." Diese Beweise vergangener Stärke sind wirksamer als abstrakte Motivation — weil sie real sind. Das Prinzip basiert auf Albert Banduras Konzept der Selbstwirksamkeit.'],
+  ['Callousing the Mind — den Geist durch Unbehagen abhärten','Goggins Hände sind nach jahrelangem Training schwielig — sie ertragen Belastungen, die untrainierte Hände sofort zerreißen würden. Der Geist funktioniert nach denselben Prinzipien. Regelmäßige Konfrontation mit Unbehagen macht ihn progressiv widerstandsfähiger. Goggins Protokoll: Suche täglich eine Situation, die unbequem ist — aber nicht unerträglich. Früh aufstehen wenn man müde ist. Im Regen laufen. Das schwierige Gespräch führen. Diese kleinen Unbehagen akkumulieren sich zu einer mentalen Widerstandsfähigkeit, die in großen Krisen verfügbar ist.'],
+  ['Niemand kommt um dich zu retten — radikale Selbstverantwortung','Goggins wuchs in Armut auf, mit einem gewalttätigen Vater, in einer Stadt ohne Chancen. Er hätte jeden Grund gehabt, auf externe Rettung zu warten. Seine Erkenntnis: Diese Rettung kommt nicht. Nie. Und das ist nicht pessimistisch — das ist befreiend. Denn wenn niemand kommt, hat man die vollständige Kontrolle. Goggins: "No one is coming. It\'s up to you." Selbstverantwortung bedeutet: Die eigene Reaktion auf externe Faktoren ist immer die entscheidende Variable.'],
+ ]
+},
+{id:'kb7',title:'Ich zeige dir, wie du reich wirst',author:'Ramit Sethi',cat:'Finanzen',acc:'#ffd000',
+ svg:()=>svgPyramid('#ffd000',[['RICH LIFE','Langfristiges Ziel definieren'],['INVESTIEREN','Index-ETFs automatisiert'],['SPAREN','Notgroschen 3–6 Monate'],['SCHULDEN','Hochzinsige zuerst tilgen'],['FIXKOSTEN','Automatisiert verwalten']]),
+ essence:'Ramit Sethi schrieb dieses Buch ursprünglich für amerikanische Studenten und Berufseinsteiger — es wurde zu einem der einflussreichsten Finanzbücher seiner Generation. Die Kernthese ist provokant: Die meisten Finanzratgeber scheitern, weil sie mit psychologischer Realität unvereinbar sind. Menschen geben keine Lattes auf, nur weil ein Buch es empfiehlt. Sie wollen kein Leben in Entbehrung führen. Sethis Ansatz: Baue automatisierte Systeme, die Reichtum ohne tägliche Willensentscheidungen generieren. Und definiere dein "Rich Life" — was du wirklich willst.',
+ takeaways:[
+  ['Das automatische Finanzsystem — Reichtum ohne Willenskraft','Am Zahltag fließt Geld automatisch in vier Kategorien: 1. Fixkosten (Miete, Strom) via Dauerauftrag. 2. Investitionen (Depot, Rentenvorsorge) als automatische Sparrate. 3. Kurzzeitsparen (Urlaub, Anschaffungen) auf Unterkonto. 4. Schuldentilgung. Was übrig bleibt: Guilty-Pleasure-Geld ohne schlechtes Gewissen. Das Geniale: Das System läuft ohne tägliche Entscheidungen. Sethi: "I spend extravagantly on the things I love, and cut costs mercilessly on the things I don\'t."'],
+  ['Index-Fonds schlagen aktiv gemanagte Fonds — die Wissenschaft ist eindeutig','Über 10+ Jahre schlagen über 90% aller aktiv gemanagten Fonds den Marktindex nicht — nicht wegen mangelnder Kompetenz, sondern wegen Kosten, Steuern und statistischer Unmöglichkeit. Die Alternative: breit diversifizierte, kostengünstige Index-ETFs (MSCI World, S&P 500). Keine Komplexität, minimale Kosten, historisch 7-10% p.a. nach Inflation. Sethis Formel: Früh anfangen + Automatisierung + niemals verkaufen + Kosten minimieren = langfristiger Wohlstand. Selbst Warren Buffett empfiehlt Index-Fonds für seine Familie.'],
+  ['Aktiv verhandeln — das unterschätzte Millionen-Instrument','Ein Telefonanruf beim Anbieter dauert 10 Minuten und kann 200 € pro Jahr sparen. Eine Gehaltsverhandlung spart 5.000–50.000 € über die Karriere. Die meisten Menschen vermeiden diese Gespräche aus Angst vor Ablehnung. Sethis Skript für Gehaltsverhandlungen: Niemals als Erster eine Zahl nennen. Recherchiere den Marktpreis. Verhandle mit Fakten, nicht mit Emotionen. Beim Anbieter: "Ich bin seit X Jahren Kunde. Ich habe ein besseres Angebot gesehen. Welche Optionen haben Sie?"'],
+  ['Big Wins statt Mikro-Optimierung — die Energiefrage','Täglicher Latte-Verzicht spart ~1.400 €/Jahr. Ein verhandeltes Gehalt spart über 30 Jahre 150.000 €. Sethis Frage: Wo investierst du deine mentale Energie? Die meisten Finanzbücher trainieren Menschen auf Mikro-Sparerei, die das Leben ärmlicher macht und minimal spart. Sethis Ansatz: Identifiziere die 2-3 Hebel, die tatsächlich zählen (Gehalt, Investitionen, große Fixkosten), optimiere aggressiv dort — und iss die verdammte Avocado.'],
+  ['Definiere dein "Rich Life" — Geld ist Werkzeug, nicht Ziel','Was würdest du tun, wenn Geld keine Rolle spielte? Die meisten Menschen können diese Frage nicht konkret beantworten — was erklärt, warum sie so schlechte Finanzentscheidungen treffen. Ohne klares Ziel optimiert man für abstrakte Zahlen statt für echte Lebensqualität. Sethi beschreibt sein Rich Life: Erstklassig fliegen, großzügig mit Freunden sein, nie auf Restaurantpreise schauen. Er spart aggressiv in Bereichen, die ihm nichts bedeuten — und gibt ohne Reue in den Bereichen, die zählen.'],
+ ]
+},
+{id:'kb8',title:'The Secret',author:'Rhonda Byrne',cat:'Mindset',acc:'#ff8800',
+ svg:()=>svgBar('#ff8800',[['🙏','Dankbarkeitspraxis (neurowiss. belegt)',88],['🎯','Klare Intention & Visualisierung',82],['🧠','RAS-Aktivierung (Hirnforschung)',78],['⚠️','Ohne konkretes Handeln: 0%',15],['✨','Als Aktivierungswerkzeug',70]]),
+ essence:'Rhonda Byrne veröffentlichte The Secret 2006 nach einer persönlichen Krise — es wurde zu einem der meistverkauften Sachbücher aller Zeiten mit über 30 Millionen Exemplaren. Die Kernthese: Das Universum reagiert auf Gedanken wie ein Spiegel — positive Gedanken ziehen positive Realitäten an. Kritiker weisen auf den Mangel wissenschaftlicher Evidenz hin. Was jedoch klar ist: Visualisierung, Dankbarkeitspraxis und positiver Fokus haben messbare neuropsychologische Effekte. Das Buch ist am wertvollsten als psychologischer Aktivierungsmotor — kombiniert mit konkretem Handeln.',
+ takeaways:[
+  ['Ask, Believe, Receive — der dreistufige Prozess','ASK: Formuliere deinen Wunsch mit absoluter Spezifität ("Ich verdiene bis 31. Dezember 85.000 € Jahresgehalt"). BELIEVE: Handle, denke und spreche so, als ob du es bereits hast — die psychologische Mechanik dahinter ist real: Wer so handelt als ob er erfolgreich ist, trifft andere Entscheidungen. RECEIVE: Öffne dich für Wege, die sich zeigen. Der häufigste Fehler: Menschen fragen und glauben, blockieren dann aber die Antwort durch übermäßige Kontrolle.'],
+  ['Das Retikular-Aktivierungssystem — die Neurologie hinter dem "Gesetz"','Das RAS im Hirnstamm filtert die ~2 Millionen Informationseinheiten, die pro Sekunde auf uns einwirken, auf die ~40, die ins Bewusstsein gelangen. Was gefiltert wird, bestimmt der Fokus. Wer sich ein rotes Auto kauft, sieht plötzlich überall rote Autos — die waren schon immer da. Wer obsessiv an Chancen denkt, dessen RAS scannt automatisch nach ihnen. Das ist kein kosmisches Versprechen — es ist Neuropsychologie.'],
+  ['Dankbarkeit als neurobiologische Kraftquelle','Robert Emmons und Michael McCullough (UC Davis) zeigten: Probanden, die täglich drei Dinge aufschreiben, für die sie dankbar sind, berichten nach 3 Wochen von signifikant höherem Wohlbefinden, besseren sozialen Beziehungen und mehr physischer Energie. Dankbarkeit aktiviert den präfrontalen Kortex, erhöht Serotonin- und Dopaminausschüttung und reduziert Cortisol. Was Byrne als "höchste Frequenz" beschreibt, hat eine messbare neurobiologische Grundlage.'],
+  ['Visualisierung — das Gehirn unterscheidet kaum zwischen Vorstellung und Realität','Sportpsychologen nutzen mentales Training seit Jahrzehnten. Studien zeigen: Probanden, die Klavierstücke nur mental üben (ohne Klavier), zeigen fast identische neuronale Verbesserungen wie solche, die physisch üben. Das Gehirn aktiviert bei intensiver Visualisierung dieselben neuronalen Netzwerke wie bei realer Ausführung. Je mehr sensorische Details in der Visualisierung, desto stärker der neurologische Effekt.'],
+  ['Die ehrliche Grenze — warum The Secret allein nicht funktioniert','Byrne selbst sagt, dass Handlung notwendig ist — aber nicht laut genug. Die häufigste Fehlanwendung: Menschen glauben, dass positive Gedanken allein Ergebnisse produzieren. The Secret ist am wirksamsten als mentaler Starter-Motor für Menschen, die in Resignation feststecken: Es schafft Klarheit über Ziele (Ask), erhöht Motivation und Selbstwirksamkeit (Believe) und schärft die Aufmerksamkeit für Gelegenheiten (Receive). Diese drei Effekte sind real — aber sie verstärken Handlung, ersetzen sie nicht.'],
+ ]
+},
+{id:'kb9',title:'Sapiens',author:'Yuval Noah Harari',cat:'Wissen',acc:'#00e878',
+ svg:()=>svgTimeline('#00e878',[['70.000 v.Chr.','Kognitive Revolution — Sprache & Fiktion'],['12.000 v.Chr.','Agrarrevolution — Sesshaftigkeit'],['3.000 v.Chr.','Erste Schrift, Geld, Stadtstaaten'],['1.500 n.Chr.','Wissenschaftliche Revolution'],['1.800 n.Chr.','Industrielle Revolution'],['Heute','KI, Biotechnologie & Homo Deus?']]),
+ essence:'Yuval Noah Harari komprimiert 70.000 Jahre Menschheitsgeschichte in einem Buch. Das zentrale Argument ist so elegant wie erschütternd: Homo sapiens dominiert die Erde nicht wegen körperlicher Stärke oder Intelligenz — andere Tiere sind in vielem besser. Der entscheidende Unterschied liegt in einer einzigartigen kognitiven Fähigkeit: Homo sapiens ist die einzige Spezies, die in großen Gruppen an gemeinsame Fiktionen glauben kann. Geld, Staaten, Unternehmen und Menschenrechte existieren nicht in der Natur — aber weil Millionen daran glauben, sind sie realer als die meisten physischen Dinge.',
+ takeaways:[
+  ['Die Kognitive Revolution — Fiktion als Superkraft der Menschheit','Vor 70.000 Jahren entwickelte Homo sapiens die Fähigkeit, über Dinge zu sprechen und daran zu glauben, die nicht existieren. Andere Tiere kommunizieren: "Achtung, Löwe!" Sapiens kommuniziert: "Der Löwe ist der Schutzgeist unseres Stammes." Diese Fähigkeit ermöglicht Kooperation in Gruppen jenseits der biologischen Grenze von 150 Personen (Dunbars Zahl). Eine geteilte Fiktion — eine Religion, eine Nation, eine Unternehmenskultur — lässt Millionen Fremder zusammenarbeiten, die sich nie getroffen haben.'],
+  ['Intersubjektive Wirklichkeit — warum Geld realer ist als ein Berg','Harari unterscheidet: Objektiv (der Berg existiert unabhängig), Subjektiv (nur ich weiß meinen Schmerz), Intersubjektiv (existiert im kollektiven Glauben). Ein 100-Euro-Schein ist bedrucktes Papier. Sein Wert existiert nur, weil genug Menschen daran glauben. Staaten sind Linien auf einer Karte. Unternehmen sind Dokumente. Menschenrechte sind Geschichten in Büchern. Diese Fiktionen beeinflussen das Verhalten von Milliarden Menschen zuverlässiger als physische Realität.'],
+  ['Die Agrar-Revolution als "größte Falle der Geschichte"','Harari argumentiert kühn: Die Agrarrevolution machte den einzelnen Menschen schlechter — mehr Arbeit (8-10h täglich vs. 4-6h bei Jägern), schlechtere Ernährung, neue Krankheiten durch dichte Siedlungen. Aber sie machte Sapiens als Spezies erfolgreich: mehr Menschen, mehr Macht. Harari: "Das Schicksal des Weizens zeigt, dass Erfolg für eine Spezies nicht Wohlstand für den Einzelnen bedeutet." Die Frage die bleibt: Welche ähnliche Falle bauen wir heute?'],
+  ['Geld — die universellste und erfolgreichste Fiktion der Geschichte','Muslime, Christen, Hindus und Atheisten, die sich in Glaubensfragen nicht einig sind, vertrauen alle dem Dollar. Geld ist universeller als jede Religion. Harari zeigt: Nicht Gold — sondern kollektives Vertrauen gibt Geld seinen Wert. Das macht moderne Währungssysteme gleichzeitig unglaublich robust (fast alle akzeptieren es) und fragil (wenn das Vertrauen bricht, wie in der Weimarer Hyperinflation, ist der Schein wertlos).'],
+  ['Die Glücksfrage — sind wir heute wirklich glücklicher?','Trotz aller Fortschritte: Sind Menschen heute glücklicher als Jäger und Sammler? Die Antwort ist unklar. Biologisch ist das Glücksniveau weitgehend genetisch bestimmt und kehrt nach positiven oder negativen Ereignissen zum persönlichen Setpoint zurück (Hedonic Treadmill). Harari zitiert epidemiologische Daten: Depressionen, Angststörungen und Einsamkeit sind in Industrieländern massiv verbreitet — trotz oder wegen des Überflusses. Die implizite Frage: Wenn unsere Systeme nicht für Glück optimieren — wofür optimieren sie dann?'],
+ ]
+},
+{id:'kb10',title:'Flow@Work',author:'Friederike Fabritius',cat:'Produktivität',acc:'#00c8ff',
+ svg:()=>svgFlowChannel('#00c8ff'),
+ essence:'Friederike Fabritius ist Neurowissenschaftlerin (Max-Planck-Institut) und ehemalige McKinsey-Beraterin — eine seltene Kombination. In Flow@Work verbindet sie Hirnforschung mit Managementrealität: Höchstleistung ist kein psychologisches Konzept — es ist ein neurobiologischer Zustand, der gezielt hergestellt werden kann. Das Buch beschreibt das FFF-Modell (Furcht, Fokus, Flow), vier neurochemische Persönlichkeitsprofile (Neurosignaturen) und zeigt, warum die meisten Unternehmen systematisch Potenzial vernichten — weil sie Gehirntypen ignorieren.',
+ takeaways:[
+  ['Das FFF-Modell — drei neurochemische Leistungszustände','FURCHT (Adrenalin/Cortisol): Kognitive Kapazität eingeschränkt, Kreativität blockiert, Fehler häufen sich. Tritt auf bei zu hohem Druck oder Bedrohung. FOKUS (Noradrenalin): Klare Konzentration auf eine Aufgabe. Gut für analytische Arbeit, keine Kreativität. FLOW (Dopamin/Serotonin/Endorphine): Optimale Performance, Zeit vergeht anders, Leistung übertrifft bewusstes Bemühen. Ziel: Furcht minimieren, Flow maximieren — durch: Unterbrechungen eliminieren, Herausforderung und Fähigkeit ausbalancieren, psychologische Sicherheit gewährleisten.'],
+  ['Die vier Neurosignaturen — warum eine Größe nicht für alle passt','DOPAMIN: Neugier, Risikobereitschaft, Innovation — braucht Freiheit und neue Projekte. SEROTONIN: Stabilität, Verlässlichkeit — braucht klare Prozesse und Vorhersehbarkeit. TESTOSTERON: Wettbewerb, Dominanz — braucht Ziele und Herausforderungen. ÖSTROGEN: Empathie, Kommunikation — braucht Sinn und Beziehungen. Unternehmen bevorzugen unbewusst Dopamin- und Testosteron-Profile — und verlieren dadurch systematisch 60-70% ihres Talentpotenzials.'],
+  ['Flow entsteht im Gleichgewicht — die Csikszentmihalyi-Formel','Flow tritt auf, wenn drei Bedingungen gleichzeitig erfüllt sind: Die Aufgabe liegt genau an der Grenze der aktuellen Kompetenz (weder zu leicht noch zu schwer). Es gibt keine externen Unterbrechungen. Es gibt klares, unmittelbares Feedback. Fabritius schätzt: Viele Wissensarbeiter erleben in weniger als 10% ihrer Arbeitszeit echten Flow — weil Meetings, E-Mails und Open-Space-Büros systematisch alle drei Bedingungen zerstören.'],
+  ['Neuroinklusive Führung — der unterschätzte Wettbewerbsvorteil','Unternehmen bevorzugen über Jahrzehnte unbewusst Dopamin+Testosteron-Profile: aggressiv, kompetitiv, risikobereit, extrovertiert. HR-Systeme und Beförderungskriterien bevorzugen diesen Typ systematisch. Das Ergebnis: Serotonin- und Östrogen-Typen arbeiten chronisch unter ihren Möglichkeiten. Fabritius nennt das ein riesiges, unbezahltes Talentreservoir. Neuroinklusive Führung: Erkenne alle vier Signaturen, passe Aufgaben und Kommunikation an — das Ergebnis sind messbar höhere Leistung und geringere Fluktuation.'],
+  ['Erholung ist Leistungsstrategie — das Default Mode Network','Der DMN im Gehirn ist während Ruhephasen aktiv — er verarbeitet Erfahrungen, konsolidiert Erinnerungen und generiert kreative Verbindungen. Kreative Durchbrüche entstehen statistisch häufiger in Pausen als in Hochleistungsphasen: Archimedes im Bad, Newton unter dem Apfelbaum, Kekulés Traum über die Benzolstruktur. Fabritius empfiehlt strukturierte Erholungsrituale (Spaziergänge, Schlafroutinen) als explizite Performance-Strategie — nicht als Luxus.'],
+ ]
+},
+{id:'kb11',title:'Rich Dad Poor Dad',author:'Robert T. Kiyosaki',cat:'Finanzen',acc:'#ffd000',
+ svg:()=>svgActiPassiva('#ffd000'),
+ essence:'Robert T. Kiyosakis "Rich Dad Poor Dad" ist das meistverkaufte Finanzbuch aller Zeiten — und eines der kontroversesten. Kiyosaki vergleicht zwei Vaterfiguren: den "armen Vater" (hochgebildet, staatlicher Angestellter, immer pleite) und den "reichen Vater" (Hauptschulabschluss, Unternehmer, Multi-Millionär). Die Kernthese: Das Schulsystem vermittelt keine Finanzbildung. Es produziert Angestellte, die für andere Reichtum erzeugen — nicht für sich selbst. Der Unterschied zwischen Arm und Reich liegt nicht im Einkommen, sondern in der Denkweise über Geld.',
+ takeaways:[
+  ['Aktiva vs. Passiva — die wichtigste Unterscheidung in der Finanzwelt','Ein Aktivum legt Geld in deine Tasche. Ein Passivum nimmt Geld aus deiner Tasche. Die meisten Menschen kaufen Passiva und nennen sie Aktiva: Das Eigenheim gilt als "Investment" — aber es generiert keinen Cash Flow, es verursacht Hypothekenzinsen, Instandhaltung und Steuern. Es wird erst zum Aktivum, wenn du es vermietest und die Einnahmen die Kosten übersteigen. Kiyosakis Formel: Kaufe Aktiva, bis die Erträge deine Lebenshaltungskosten übersteigen. Das ist finanzielle Freiheit.'],
+  ['Den Ratte-Wettrennen-Kreislauf verstehen und verlassen','Mehr verdienen → Lifestyle wächst → Ausgaben steigen → mehr Einkommen nötig → mehr arbeiten. Dieser Kreislauf hat kein Ende. Die meisten Menschen steigen mit dem ersten Gehalt ein und verlassen ihn nie. Der Ausweg: Baue Aktiva auf, die passives Einkommen generieren. Das Ziel ist der Punkt, an dem monatliches passives Einkommen die monatlichen Ausgaben übersteigt — ab diesem Punkt ist Arbeit eine Wahl, keine Notwendigkeit.'],
+  ['Finanzielle Bildung — das fehlende Schulfach','Schulen lehren Mathematik, Geschichte und Sprachen — aber nicht, wie Geld funktioniert. Nicht Zinseszins, nicht Steuern, nicht Investitionen, nicht die Mechanik von Schulden. Das Ergebnis: Hochgebildete Menschen mit guten Gehältern tappen in Finanzfallen. Die vier Konzepte, die Kiyosaki vermisst: Was ist Cash Flow? Wie funktioniert Leverage? Wie unterscheiden sich Kapitalerträge steuerlich von Arbeitseinkommen? Wie lese ich einen Jahresabschluss?'],
+  ['Einkommen ≠ Reichtum — der häufigste Denkfehler','Ein hohes Gehalt macht nicht reich — es ermöglicht einen teuren Lebensstil. Lifestyle-Inflation bedeutet: Mit steigendem Einkommen steigen Ausgaben proportional. Reichtum ist nicht das, was du verdienst — es ist das, was du behältst und wofür du arbeitest. Kiyosaki definiert finanziellen Erfolg so: Wie lange kannst du aufhören zu arbeiten und deinen Lifestyle beibehalten? Wer die Antwort in Monaten misst, ist nicht reich — unabhängig vom Gehalt.'],
+  ['Mind your own Business — der Unterschied zwischen Job und Business','Dein Job bringt Einkommen. Dein Business ist der Aufbau deiner Asset-Kolonne. Solange du für jemanden anderen arbeitest, baust du dessen Wohlstand auf. Ray Kroc sagte: "Ich bin nicht im Hamburger-Business — ich bin im Immobilien-Business." McDonald\'s besitzt das Land, auf dem fast alle Filialen stehen. Das ist sein echtes Business. Kiyosakis Rat: Behalte deinen Job, aber nutze das Einkommen strategisch, um Aktiva zu kaufen — nicht Konsumgüter.'],
+ ]
+},
 ];
 
 let kdActiveBook=null,kdActiveFilter='Alle';
@@ -2617,53 +2834,28 @@ function renderKD(){
   const gridWrap=document.getElementById('bk-kd-grid');
   const detWrap=document.getElementById('bk-kd-detail');
   if(!filtWrap||!gridWrap||!detWrap)return;
-
   const filtered=kdActiveFilter==='Alle'?KD_BOOKS:KD_BOOKS.filter(b=>b.cat===kdActiveFilter);
-
-  filtWrap.innerHTML=KD_CATS.map(c=>`
-    <button onclick="kdFilter('${c}')" style="padding:.25rem .65rem;border-radius:3px;font-size:.58rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border:1px solid ${c===kdActiveFilter?'var(--blue)':'rgba(0,200,255,.12)'};background:${c===kdActiveFilter?'rgba(0,200,255,.1)':'transparent'};color:${c===kdActiveFilter?'var(--blue)':'var(--tx3)'};font-family:'DM Sans',sans-serif;transition:all .16s">${c}</button>
-  `).join('')+`<span style="font-size:.55rem;color:var(--tx3);margin-left:auto;font-family:'DM Mono',monospace">${filtered.length} Bücher</span>`;
-
-  gridWrap.innerHTML=filtered.map(b=>`
-    <div onclick="kdOpen('${b.id}')" style="padding:.85rem 1rem;background:var(--hb);border:1px solid ${kdActiveBook===b.id?b.acc:'var(--hbr)'};border-top:2px solid ${b.acc};border-radius:var(--rs);cursor:pointer;transition:all .2s;${kdActiveBook===b.id?`box-shadow:0 0 0 1px ${b.acc}35`:''}">
-      <div style="font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:${b.acc};margin-bottom:.35rem;opacity:.85">${b.cat}</div>
-      <div style="font-size:.82rem;font-weight:700;color:var(--tx);margin-bottom:.18rem;line-height:1.3">${b.title}</div>
-      <div style="font-size:.58rem;color:var(--tx3)">${b.author}</div>
-    </div>
-  `).join('');
-
+  filtWrap.innerHTML=KD_CATS.map(c=>`<button onclick="kdFilter('${c}')" style="padding:.28rem .72rem;border-radius:4px;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border:1px solid ${c===kdActiveFilter?'var(--blue)':'rgba(0,200,255,.12)'};background:${c===kdActiveFilter?'rgba(0,200,255,.1)':'transparent'};color:${c===kdActiveFilter?'var(--blue)':'var(--tx3)'};font-family:'DM Sans',sans-serif;transition:all .16s">${c}</button>`).join('')+`<span style="font-size:.55rem;color:var(--tx3);margin-left:auto;font-family:'DM Mono',monospace">${filtered.length} Bücher</span>`;
+  gridWrap.innerHTML=filtered.map(b=>`<div onclick="kdOpen('${b.id}')" style="padding:.9rem 1rem;background:var(--hb);border:1px solid ${kdActiveBook===b.id?b.acc:'var(--hbr)'};border-top:2.5px solid ${b.acc};border-radius:var(--rs);cursor:pointer;transition:all .2s;${kdActiveBook===b.id?`box-shadow:0 0 12px ${b.acc}25`:''}"><div style="font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:${b.acc};margin-bottom:.38rem;opacity:.8">${b.cat}</div><div style="font-size:.82rem;font-weight:700;color:var(--tx);margin-bottom:.18rem;line-height:1.3">${b.title}</div><div style="font-size:.58rem;color:var(--tx3)">${b.author}</div></div>`).join('');
   if(kdActiveBook){
     const b=KD_BOOKS.find(x=>x.id===kdActiveBook);
     if(b){
-      detWrap.innerHTML=`
-        <div style="padding:1.3rem;background:rgba(6,6,14,.92);border:1px solid ${b.acc}40;border-radius:var(--r);animation:up .28s cubic-bezier(.34,1.56,.64,1) both">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem">
-            <div>
-              <div style="font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:${b.acc};margin-bottom:.28rem">${b.cat}</div>
-              <div style="font-size:1.2rem;font-weight:800;letter-spacing:-.02em;color:${b.acc};margin-bottom:.16rem;text-shadow:0 0 20px ${b.acc}25">${b.title}</div>
-              <div style="font-size:.65rem;color:var(--tx2)">by ${b.author}</div>
-            </div>
-            <button onclick="kdClose()" style="font-family:'DM Mono',monospace;font-size:.58rem;color:var(--tx3);border:1px solid var(--tx3);padding:.22rem .6rem;border-radius:2px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0">[ × ]</button>
-          </div>
-          <div style="font-size:.8rem;color:var(--tx2);line-height:1.75;border-left:2px solid ${b.acc};padding-left:.9rem;margin-bottom:1.3rem;font-style:italic">${b.essence}</div>
-          <div style="font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:${b.acc};margin-bottom:.85rem;padding-bottom:.45rem;border-bottom:1px solid rgba(0,200,255,.07)">//&nbsp;Key Takeaways</div>
-          ${b.takeaways.map((t,i)=>`
-            <div style="display:flex;gap:.75rem;margin-bottom:.85rem;align-items:flex-start">
-              <span style="font-family:'DM Mono',monospace;font-size:.55rem;color:${b.acc};min-width:22px;opacity:.7;padding-top:3px">0${i+1}</span>
-              <div>
-                <div style="font-size:.78rem;font-weight:600;color:var(--tx);margin-bottom:.2rem">${t[0]}</div>
-                <div style="font-size:.72rem;color:var(--tx2);line-height:1.65">${t[1]}</div>
-              </div>
-            </div>`).join('')}
-        </div>`;
-      setTimeout(()=>{
-        const det=document.getElementById('bk-kd-detail');
-        if(det)det.scrollIntoView({behavior:'smooth',block:'nearest'});
-      },60);
+      const svgHtml=b.svg?b.svg():'';
+      const laws48Html=b.laws48?`<div style="margin-top:1.8rem"><div style="font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:${b.acc};margin-bottom:.9rem;padding-bottom:.5rem;border-bottom:1px solid rgba(0,200,255,.07)">//&nbsp;Alle 48 Gesetze</div><div style="display:flex;flex-direction:column;gap:.4rem">${LAWS48.map(([n,title,desc])=>`<details style="background:rgba(0,200,255,.025);border:1px solid rgba(0,200,255,.09);border-radius:var(--rs);overflow:hidden"><summary style="padding:.65rem .9rem;cursor:pointer;font-size:.74rem;font-weight:600;color:var(--tx);display:flex;align-items:center;gap:.65rem;user-select:none"><span style="font-family:'DM Mono',monospace;font-size:.58rem;color:${b.acc};min-width:24px;opacity:.65;flex-shrink:0">${String(n).padStart(2,'0')}</span><span style="flex:1">${title}</span><span style="font-size:.6rem;color:var(--tx3);flex-shrink:0">▾</span></summary><div style="padding:.8rem .9rem .9rem 2.4rem;font-size:.72rem;color:var(--tx2);line-height:1.78;border-top:1px solid rgba(0,200,255,.07)">${desc}</div></details>`).join('')}</div></div>`:'';
+      detWrap.innerHTML=`<div style="padding:1.4rem;background:rgba(6,6,14,.95);border:1px solid ${b.acc}38;border-radius:var(--r);animation:up .28s cubic-bezier(.34,1.56,.64,1) both">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.1rem;gap:1rem">
+          <div><div style="font-size:.5rem;font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:${b.acc};margin-bottom:.3rem">${b.cat}</div><div style="font-size:1.25rem;font-weight:800;letter-spacing:-.03em;color:${b.acc};margin-bottom:.18rem;text-shadow:0 0 24px ${b.acc}20">${b.title}</div><div style="font-size:.64rem;color:var(--tx2)">by ${b.author}</div></div>
+          <button onclick="kdClose()" style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--tx3);border:1px solid rgba(0,200,255,.2);padding:.28rem .72rem;border-radius:4px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0">✕ Schließen</button>
+        </div>
+        <div style="font-size:.8rem;color:var(--tx2);line-height:1.85;border-left:3px solid ${b.acc};padding-left:1rem;margin-bottom:1.4rem;background:rgba(0,200,255,.02);padding:1rem 1rem 1rem 1.1rem;border-radius:0 var(--rs) var(--rs) 0">${b.essence}</div>
+        ${svgHtml?`<div style="margin-bottom:1.4rem;padding:1rem;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.04);border-radius:var(--rs)">${svgHtml}</div>`:''}
+        <div style="font-size:.52rem;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:${b.acc};margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid rgba(0,200,255,.07)">//&nbsp;Key Takeaways</div>
+        ${b.takeaways.map((t,i)=>`<div style="margin-bottom:1.2rem;padding:1rem 1.1rem;background:rgba(0,200,255,.025);border:1px solid rgba(0,200,255,.08);border-left:3px solid ${b.acc};border-radius:0 var(--rs) var(--rs) 0"><div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem"><span style="font-family:'DM Mono',monospace;font-size:.56rem;color:${b.acc};opacity:.65;flex-shrink:0">0${i+1}</span><div style="font-size:.8rem;font-weight:700;color:var(--tx)">${t[0]}</div></div><div style="font-size:.73rem;color:var(--tx2);line-height:1.82;padding-left:1.3rem">${t[1]}</div></div>`).join('')}
+        ${laws48Html}
+      </div>`;
+      setTimeout(()=>{const det=document.getElementById('bk-kd-detail');if(det)det.scrollIntoView({behavior:'smooth',block:'nearest'});},80);
     }
-  }else{
-    detWrap.innerHTML='';
-  }
+  }else{detWrap.innerHTML='';}
 }
 function kdFilter(f){kdActiveFilter=f;kdActiveBook=null;renderKD();}
 function kdOpen(id){kdActiveBook=kdActiveBook===id?null:id;renderKD();}
